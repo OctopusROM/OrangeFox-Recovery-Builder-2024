@@ -50,7 +50,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            bc bison build-essential ca-certificates curl flex g++-multilib \
+            bc bison build-essential ca-certificates cpio curl flex g++-multilib \
             gcc-multilib git git-lfs gnupg gperf lib32ncurses-dev lib32z1-dev \
             binutils-aarch64-linux-gnu binutils-arm-linux-gnueabi \
             libelf-dev liblz4-tool libncurses5 libssl-dev libxml2-utils lzop \
@@ -151,6 +151,15 @@ jobs:
           test -s artifacts/unpacked/recovery_dtbo
           grep -qx 'boot image header version: 2' artifacts/image-info.txt
           test "$(stat -c %s artifacts/recovery.img)" -le 134217728
+          mkdir -p artifacts/unpacked/root
+          gzip -dc artifacts/unpacked/ramdisk | cpio --extract --make-directories \
+            --no-absolute-filenames --directory artifacts/unpacked/root
+          (
+            cd artifacts/unpacked/root
+            sha256sum -c "$ANDROID_SOURCE/device/xiaomi/lmi/CRYPTO-SHA256SUMS"
+          )
+          bash scripts/check-crypto-linkage.sh artifacts/unpacked/root \
+            | tee logs/crypto-linkage.log
           cp "$ANDROID_SOURCE/device/xiaomi/lmi/PORT-SOURCES.txt" artifacts/
           cp "$ANDROID_SOURCE/device/xiaomi/lmi/CRYPTO-SHA256SUMS" artifacts/
           cp "$ANDROID_SOURCE/device/xiaomi/lmi/prebuilt/KERNEL-SHA256SUMS" artifacts/
