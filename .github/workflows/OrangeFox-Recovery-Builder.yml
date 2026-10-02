@@ -93,6 +93,25 @@ jobs:
           cd "$ANDROID_SOURCE"
           source build/envsetup.sh
           lunch twrp_lmi-bp2a-eng
+          (
+            while true; do
+              date -u
+              free -h
+              swapon --show
+              df -h "$ANDROID_SOURCE"
+              for resource in /proc/self/cgroup /proc/pressure/memory \
+                /sys/fs/cgroup/memory.current /sys/fs/cgroup/memory.max \
+                /sys/fs/cgroup/memory.events; do
+                if [[ -r $resource ]]; then
+                  printf '%s\n' "$resource"
+                  cat "$resource"
+                fi
+              done
+              sleep 60
+            done
+          ) > >(tee "$GITHUB_WORKSPACE/logs/resources.log") 2>&1 &
+          monitor=$!
+          trap 'kill "$monitor" 2>/dev/null || :; wait "$monitor" 2>/dev/null || :' EXIT
           mka -j2 recoveryimage 2>&1 | tee "$GITHUB_WORKSPACE/logs/build.log"
 
       - name: Validate and collect recovery artifacts
