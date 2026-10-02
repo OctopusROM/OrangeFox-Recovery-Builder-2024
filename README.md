@@ -1,3 +1,18 @@
+# lmi ROM-tree recovery port
+
+The `orangefox-lmi-port` branch builds an experimental OrangeFox recovery for
+the POCO F2 Pro / Redmi K30 Pro (`lmi`), targeting Official LineageOS 23.2 (Android 16)
+or other based rom encrypted-data access with OrangeFox `fox_16.0`. 
+
+Run **Actions -> OrangeFox - Build -> Run workflow**, selecting the
+`orangefox-lmi-port` branch.  Build logs are retained as Actions
+artifacts. Successful images, OrangeFox installers and SHA-256 checksums are
+published as prereleases in [Releases](../../releases).
+
+---
+
+# Original generic builder instructions
+
 # compile OrangeFox Recovery with Github Actions
 ```
 only Supports OrangeFox  (14.1 is not ready yet) / 12.1 / 11
@@ -105,4 +120,3 @@ Can be downloaded at [Release](../../releases)
 - https://github.com/cd-Crypton
 - https://github.com/azwhikaru
 - And to all Contributors in every repositories and scripts I used.
-
