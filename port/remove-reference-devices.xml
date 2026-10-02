@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<manifest>
+    <remove-project name="device/mondrian" />
+    <remove-project name="device/sm84xx-common" />
+</manifest>
