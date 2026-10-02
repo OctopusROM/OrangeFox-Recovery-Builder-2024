@@ -1,0 +1,10 @@
+/metadata ext4 /dev/block/by-name/metadata flags=display="Metadata";backup=1;wrappedkey
+/data f2fs /dev/block/bootdevice/by-name/userdata flags=fileencryption=ice;wrappedkey;keydirectory=/metadata/vold/metadata_encryption
+/boot emmc /dev/block/bootdevice/by-name/boot flags=display="Boot";backup=1;flashimg=1
+/recovery emmc /dev/block/bootdevice/by-name/recovery flags=display="Recovery";backup=1;flashimg=1
+/dtbo emmc /dev/block/bootdevice/by-name/dtbo flags=display="DTBO";backup=1;flashimg=1
+/cache ext4 /dev/block/bootdevice/by-name/cache flags=display="Cache"
+/persist ext4 /dev/block/bootdevice/by-name/persist flags=display="Persist";backup=1
+/misc emmc /dev/block/bootdevice/by-name/misc
+/firmware vfat /dev/block/bootdevice/by-name/modem flags=display="Firmware";mounttodecrypt
+/usb_otg vfat /dev/block/sdg1 /dev/block/sdg flags=display="USB-OTG";storage;wipeingui;removable
