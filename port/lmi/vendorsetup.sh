@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+
+if [[ ${FOX_BUILD_DEVICE:-} == lmi ]]; then
+    export OF_MAINTAINER=ushion0a
+    export FOX_BUILD_TYPE=Unofficial
+    export OF_FORCE_PREBUILT_KERNEL=1
+    export OF_DEFAULT_KEYMASTER_VERSION=4.0
+    export FOX_USE_TWRP_RECOVERY_IMAGE_BUILDER=1
+    export OF_SCREEN_H=2400
+    export OF_STATUS_H=105
+    export OF_STATUS_INDENT_LEFT=48
+    export OF_STATUS_INDENT_RIGHT=48
+    export OF_HIDE_NOTCH=0
+    export OF_ALLOW_DISABLE_NAVBAR=0
+    export OF_DONT_PATCH_ENCRYPTED_DEVICE=1
+    export FOX_VANILLA_BUILD=1
+    export OF_DISABLE_MIUI_OTA_BY_DEFAULT=1
+    export OF_NO_TREBLE_COMPATIBILITY_CHECK=1
+    export FOX_DELETE_AROMAFM=1
+fi
