@@ -149,7 +149,7 @@ jobs:
           test -s artifacts/unpacked/ramdisk
           test -s artifacts/unpacked/dtb
           test -s artifacts/unpacked/recovery_dtbo
-          grep -q 'boot header version: 2' artifacts/image-info.txt
+          grep -qx 'boot image header version: 2' artifacts/image-info.txt
           test "$(stat -c %s artifacts/recovery.img)" -le 134217728
           cp "$ANDROID_SOURCE/device/xiaomi/lmi/PORT-SOURCES.txt" artifacts/
           cp "$ANDROID_SOURCE/device/xiaomi/lmi/CRYPTO-SHA256SUMS" artifacts/
