@@ -1,0 +1,7 @@
+--- a/ui/build/soong.go
++++ b/ui/build/soong.go
+@@ -216 +216,3 @@
+-	invocationEnv := make(map[string]string)
++	invocationEnv := make(map[string]string)
++	invocationEnv["GOGC"] = "25"
++	invocationEnv["GOMEMLIMIT"] = "10GiB"

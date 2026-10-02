@@ -78,6 +78,15 @@ jobs:
           ) 2>&1 | tee logs/sync.log
           test -f "$ANDROID_SOURCE/bootable/recovery/Android.bp"
 
+      - name: Constrain Soong graph builder memory
+        run: |
+          patch --batch --fuzz=0 -d "$ANDROID_SOURCE/build/soong" -p1 \
+            < port/soong-memory.patch
+          GIT_MASTER=1 git -C "$ANDROID_SOURCE/build/soong" diff \
+            > artifacts/soong-memory.patch
+          sha256sum artifacts/soong-memory.patch \
+            | tee logs/soong-memory.sha256
+
       - name: Prepare recovery port from ROM hardware configuration
         run: |
           bash scripts/prepare-lmi.sh "$ANDROID_SOURCE" \
@@ -99,6 +108,13 @@ jobs:
               free -h
               swapon --show
               df -h "$ANDROID_SOURCE"
+              for builder_pid in $(pgrep -x soong_build || :); do
+                if [[ -r /proc/$builder_pid/environ ]]; then
+                  printf 'soong_build pid=%s\n' "$builder_pid"
+                  tr '\0' '\n' < "/proc/$builder_pid/environ" \
+                    | grep -E '^(GOGC|GOMEMLIMIT)=' || :
+                fi
+              done
               for resource in /proc/self/cgroup /proc/pressure/memory \
                 /sys/fs/cgroup/memory.current /sys/fs/cgroup/memory.max \
                 /sys/fs/cgroup/memory.events; do
@@ -181,6 +197,7 @@ jobs:
             artifacts/KERNEL-SHA256SUMS
             artifacts/kernel.config
             artifacts/manifest.xml
+            artifacts/soong-memory.patch
           body: |
             Build configuration: ${{ github.server_url }}/${{ github.repository }}/tree/${{ github.sha }}
             Build logs: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
