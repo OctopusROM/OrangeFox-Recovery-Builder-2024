@@ -26,6 +26,7 @@ jobs:
       FOX_BUILD_DEVICE: lmi
       FOX_BUILD_TYPE: Unofficial
       ALLOW_MISSING_DEPENDENCIES: 'true'
+      ANDROID_SOURCE: /tmp/fox
       GIT_AUTHOR_NAME: OrangeFox lmi builder
       GIT_AUTHOR_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
       GIT_COMMITTER_NAME: OrangeFox lmi builder
@@ -64,9 +65,10 @@ jobs:
 
       - name: Sync OrangeFox Android 16
         run: |
-          mkdir -p OrangeFox
+          # qcacld repeats the physical source path in its compiler flags.
+          mkdir -p "$ANDROID_SOURCE"
           (
-            cd OrangeFox
+            cd "$ANDROID_SOURCE"
             repo init --depth=1 -u https://gitlab.com/OrangeFox/Manifest.git \
               -b 4c65ca28fa67580172ee6bf99892a054c19dcebe
             mkdir -p .repo/local_manifests
@@ -74,28 +76,28 @@ jobs:
             repo sync -c -j4 --no-clone-bundle --no-tags
             repo manifest -r -o "$GITHUB_WORKSPACE/logs/manifest.xml"
           ) 2>&1 | tee logs/sync.log
-          test -f OrangeFox/bootable/recovery/Android.bp
+          test -f "$ANDROID_SOURCE/bootable/recovery/Android.bp"
 
       - name: Prepare recovery port from ROM hardware configuration
         run: |
-          bash scripts/prepare-lmi.sh "$GITHUB_WORKSPACE/OrangeFox" \
+          bash scripts/prepare-lmi.sh "$ANDROID_SOURCE" \
             2>&1 | tee logs/prepare.log
 
       - name: Build lmi kernel from pinned ROM sources
         run: |
-          bash scripts/build-lmi-kernel.sh "$GITHUB_WORKSPACE/OrangeFox" \
+          bash scripts/build-lmi-kernel.sh "$ANDROID_SOURCE" \
             2>&1 | tee logs/kernel.log
 
       - name: Build recovery image and OrangeFox installer
         run: |
-          cd OrangeFox
+          cd "$ANDROID_SOURCE"
           source build/envsetup.sh
           lunch twrp_lmi-bp2a-eng
           mka -j2 recoveryimage 2>&1 | tee "$GITHUB_WORKSPACE/logs/build.log"
 
       - name: Validate and collect recovery artifacts
         run: |
-          product=OrangeFox/out/target/product/lmi
+          product="$ANDROID_SOURCE/out/target/product/lmi"
           test -s "$product/recovery.img"
           cp "$product/recovery.img" artifacts/recovery.img
           shopt -s nullglob
@@ -105,7 +107,7 @@ jobs:
             unzip -t "$installer"
             cp "$installer" artifacts/
           done
-          python3 OrangeFox/system/tools/mkbootimg/unpack_bootimg.py \
+          python3 "$ANDROID_SOURCE/system/tools/mkbootimg/unpack_bootimg.py" \
             --boot_img artifacts/recovery.img --out artifacts/unpacked \
             | tee artifacts/image-info.txt
           test -s artifacts/unpacked/kernel
@@ -114,10 +116,10 @@ jobs:
           test -s artifacts/unpacked/recovery_dtbo
           grep -q 'boot header version: 2' artifacts/image-info.txt
           test "$(stat -c %s artifacts/recovery.img)" -le 134217728
-          cp OrangeFox/device/xiaomi/lmi/PORT-SOURCES.txt artifacts/
-          cp OrangeFox/device/xiaomi/lmi/CRYPTO-SHA256SUMS artifacts/
-          cp OrangeFox/device/xiaomi/lmi/prebuilt/KERNEL-SHA256SUMS artifacts/
-          cp OrangeFox/device/xiaomi/lmi/prebuilt/kernel.config artifacts/
+          cp "$ANDROID_SOURCE/device/xiaomi/lmi/PORT-SOURCES.txt" artifacts/
+          cp "$ANDROID_SOURCE/device/xiaomi/lmi/CRYPTO-SHA256SUMS" artifacts/
+          cp "$ANDROID_SOURCE/device/xiaomi/lmi/prebuilt/KERNEL-SHA256SUMS" artifacts/
+          cp "$ANDROID_SOURCE/device/xiaomi/lmi/prebuilt/kernel.config" artifacts/
           cp logs/manifest.xml artifacts/
           (
             cd artifacts
