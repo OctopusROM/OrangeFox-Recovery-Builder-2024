@@ -128,7 +128,7 @@ jobs:
           ) > >(tee "$GITHUB_WORKSPACE/logs/resources.log") 2>&1 &
           monitor=$!
           trap 'kill "$monitor" 2>/dev/null || :; wait "$monitor" 2>/dev/null || :' EXIT
-          mka -j2 recoveryimage 2>&1 | tee "$GITHUB_WORKSPACE/logs/build.log"
+          mka -j2 recoveryimage ufdt_apply_overlay 2>&1 | tee "$GITHUB_WORKSPACE/logs/build.log"
 
       - name: Validate and collect recovery artifacts
         run: |
@@ -151,6 +151,20 @@ jobs:
           test -s artifacts/unpacked/recovery_dtbo
           grep -qx 'boot image header version: 2' artifacts/image-info.txt
           test "$(stat -c %s artifacts/recovery.img)" -le 134217728
+          dtb_dir="$ANDROID_SOURCE/device/xiaomi/lmi/prebuilt/dtb"
+          cat "$dtb_dir/kona-v2.1.dtb" "$dtb_dir/kona-v2.dtb" "$dtb_dir/kona.dtb" \
+            | cmp - artifacts/unpacked/dtb
+          python3 "$ANDROID_SOURCE/system/libufdt/utils/src/mkdtboimg.py" dump \
+            artifacts/unpacked/recovery_dtbo -b artifacts/unpacked/overlay \
+            | tee logs/dtbo.log
+          overlays=(artifacts/unpacked/overlay.*)
+          test "${#overlays[@]}" -eq 1
+          for dtb in kona kona-v2 kona-v2.1; do
+            printf 'Applying lmi DTBO to %s\n' "$dtb"
+            "$ANDROID_SOURCE/out/host/linux-x86/bin/ufdt_apply_overlay" \
+              "$dtb_dir/$dtb.dtb" "${overlays[0]}" "artifacts/unpacked/$dtb-merged.dtb" \
+              | tee -a logs/dtbo-apply.log
+          done
           mkdir -p artifacts/unpacked/root
           gzip -dc artifacts/unpacked/ramdisk | cpio --extract --make-directories \
             --no-absolute-filenames --directory artifacts/unpacked/root
@@ -194,6 +208,7 @@ jobs:
         with:
           tag_name: lmi-port-${{ github.run_id }}
           name: Unofficial OrangeFox lmi ROM-tree port
+          draft: true
           prerelease: true
           fail_on_unmatched_files: true
           files: |
