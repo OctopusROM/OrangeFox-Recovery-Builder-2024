@@ -168,6 +168,10 @@ jobs:
           mkdir -p artifacts/unpacked/root
           gzip -dc artifacts/unpacked/ramdisk | cpio --extract --make-directories \
             --no-absolute-filenames --directory artifacts/unpacked/root
+          cmp "$ANDROID_SOURCE/system/core/libprocessgroup/profiles/task_profiles.json" \
+            artifacts/unpacked/root/system/etc/task_profiles.json
+          cmp "$ANDROID_SOURCE/system/hwservicemanager/hwservicemanager.xml" \
+            artifacts/unpacked/root/system/etc/vintf/manifest.xml
           (
             cd artifacts/unpacked/root
             sha256sum -c "$ANDROID_SOURCE/device/xiaomi/lmi/CRYPTO-SHA256SUMS"
