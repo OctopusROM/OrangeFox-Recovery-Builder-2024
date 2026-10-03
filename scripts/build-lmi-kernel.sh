@@ -20,11 +20,16 @@ clang_bin=$(printf '%s\n' "${clang_dirs[@]}" | sort -V | tail -n 1)
 export PATH="$clang_bin:$PATH"
 clang --version
 
+# The bundled kernel DTC creates local fragment targets that UFDT cannot resolve.
+make -C "$source_root/external/dtc" -j2 NO_PYTHON=1 NO_YAML=1 dtc
+"$source_root/external/dtc/dtc" --version
+
 make_args=(
     -C "$kernel_source" O="$kernel_out" ARCH=arm64 LLVM=1 LLVM_IAS=1
     CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_COMPAT=arm-linux-gnueabi-
     CROSS_COMPILE_ARM32=arm-linux-gnueabi- CLANG_TRIPLE=aarch64-linux-gnu-
     HOSTCFLAGS=-fcommon
+    DTC_EXT="$source_root/external/dtc/dtc"
 )
 mkdir -p "$kernel_out" "$device_prebuilt/dtb"
 make "${make_args[@]}" vendor/kona-perf_defconfig
