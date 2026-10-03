@@ -31,6 +31,11 @@ clone_revision https://github.com/Nyxal-GH/android_kernel_xiaomi_sm8250.git \
     712e4dee69ed5c4fedad123bf39de4bd0d31394b "$inputs/kernel"
 
 cp -a "$builder_root/port/lmi/." "$device/"
+mkdir -p "$device/recovery/root/system/etc/vintf"
+cp "$source_root/system/core/libprocessgroup/profiles/task_profiles.json" \
+    "$device/recovery/root/system/etc/task_profiles.json"
+cp "$source_root/system/hwservicemanager/hwservicemanager.xml" \
+    "$device/recovery/root/system/etc/vintf/manifest.xml"
 cp "$inputs/sm8250-common/rootdir/etc/fstab.qcom" \
     "$device/recovery/root/system/etc/recovery.fstab"
 sed -i -E 's/,avb_keys=[^,[:space:]]+//g; s/,avb(=[^,[:space:]]+)?//g; s/,first_stage_mount//g' \
