@@ -19,6 +19,12 @@ binaries=(
     system/bin/keystore2
     system/lib64/libfscrypt.so
     vendor/lib64/hw/android.hardware.gatekeeper@1.0-impl-qti.so
+    vendor/lib64/librpmb.so
+    vendor/lib64/libssd.so
+    vendor/lib64/libspl.so
+    vendor/lib64/libdrmtime.so
+    vendor/lib64/libGPreqcancel.so
+    vendor/lib64/libqisl.so
 )
 for binary in "${binaries[@]}"; do
     test -s "$binary"

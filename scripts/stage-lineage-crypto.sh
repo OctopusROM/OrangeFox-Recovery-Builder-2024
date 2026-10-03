@@ -28,7 +28,12 @@ done
 cp "$vendor_source/proprietary/vendor/lib64/hw/android.hardware.gatekeeper@1.0-impl-qti.so" \
     "$device_root/vendor/lib64/hw/"
 
-queue=("$device_root/system/bin/"* "$device_root/vendor/lib64/hw/"*)
+# QSEECom loads these crypto listeners with dlopen, not DT_NEEDED.
+for library in librpmb.so libssd.so libspl.so libdrmtime.so libGPreqcancel.so libqisl.so; do
+    cp "$vendor_source/proprietary/vendor/lib64/$library" "$device_root/vendor/lib64/"
+done
+
+queue=("$device_root/system/bin/"* "$device_root/vendor/lib64/"*.so "$device_root/vendor/lib64/hw/"*)
 declare -A copied=()
 for ((index=0; index<${#queue[@]}; index++)); do
     mapfile -t dependencies < <(LC_ALL=C readelf -d "${queue[index]}" | \
