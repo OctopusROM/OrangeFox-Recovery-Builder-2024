@@ -48,6 +48,9 @@ cat >> "$device/recovery/root/init.recovery.qcom.rc" <<'RC'
 
 import /init.recovery.qcom_decrypt.rc
 
+on init
+    setprop prepdecrypt.setpatch true
+
 on early-init
     symlink /vendor/firmware_mnt /firmware
     symlink /vendor/bt_firmware /bt_firmware
@@ -64,6 +67,7 @@ ROM common: https://github.com/OctopusROM/device_xiaomi_sm8250-common/commit/4fe
 Kernel source: https://github.com/Nyxal-GH/android_kernel_xiaomi_sm8250/commit/712e4dee69ed5c4fedad123bf39de4bd0d31394b
 Kernel configuration: vendor/kona-perf_defconfig, vendor/debugfs.config, vendor/xiaomi/sm8250-common.config, vendor/xiaomi/lmi.config
 Data encryption flags retained from ROM fstab: fileencryption=ice,wrappedkey,keydirectory=/metadata/vold/metadata_encryption
+Keymaster version preparation: prepdecrypt.setpatch=true (installed system/vendor build properties)
 No MIUI 12 recovery donor kernel or blob package is used.
 SOURCES
 
