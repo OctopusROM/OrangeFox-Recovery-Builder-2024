@@ -1,12 +1,15 @@
 --- a/bootable/recovery/libtar/extract.c
 +++ b/bootable/recovery/libtar/extract.c
-@@ -126,3 +126,52 @@
+@@ -126,3 +126,64 @@
 +	if ((t->options & TAR_STORE_SELINUX) && t->th_buf.selinux_context != NULL)
 +	{
 +		const char *selinux_class = "file";
 +		char *current_context = NULL;
 +		int access_result;
 +		int access_errno;
++		int context_fd;
++		int context_errno;
++		ssize_t context_result = -1;
 +
 +		if (TH_ISDIR(t))
 +			selinux_class = "dir";
@@ -19,9 +22,18 @@
 +		else if (TH_ISFIFO(t))
 +			selinux_class = "fifo_file";
 +
-+		if (security_check_context(t->th_buf.selinux_context) < 0)
++		context_fd = open("/sys/fs/selinux/context", O_RDWR | O_CLOEXEC);
++		context_errno = errno;
++		if (context_fd >= 0)
 +		{
-+			int context_errno = errno;
++			context_result = write(context_fd, t->th_buf.selinux_context,
++					       strlen(t->th_buf.selinux_context) + 1);
++			context_errno = errno;
++			close(context_fd);
++		}
++
++		if (context_result < 0)
++		{
 +			fprintf(stderr, "tar_extract_file(): invalid archived SELinux context %s for %s\n",
 +				t->th_buf.selinux_context, realname);
 +			errno = context_errno;
@@ -53,7 +65,7 @@
  	if (t->options & TAR_NOOVERWRITE)
  	{
  		struct stat s;
-@@ -170,7 +219,12 @@
+@@ -170,7 +231,12 @@
  		LOG("tar_extract_file(): restoring SELinux context %s to file %s\n", t->th_buf.selinux_context, realname);
  #endif
 -		if (lsetfilecon(realname, t->th_buf.selinux_context) < 0)
