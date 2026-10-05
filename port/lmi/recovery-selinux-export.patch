@@ -1,8 +1,0 @@
---- a/external/selinux/libselinux/exported.map.txt
-+++ b/external/selinux/libselinux/exported.map.txt
-@@ -58,4 +58,5 @@
- LIBSELINUX_36 { # introduced=36
-     getprevcon; # systemapi
-+    security_check_context; # systemapi
-     selinux_android_tee_service_context_handle; # systemapi
- };
