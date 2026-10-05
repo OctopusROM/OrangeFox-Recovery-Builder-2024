@@ -1,0 +1,62 @@
+--- a/device/qcom/twrp-common/crypto/system/bin/prepdecrypt.sh
++++ b/device/qcom/twrp-common/crypto/system/bin/prepdecrypt.sh
+@@ -135,6 +135,13 @@
+ 	exit 2
+ }
+ 
++update_default_prop()
++{
++	sed "s/$1=.*/$1=$2/g" "/$DEFAULTPROP" > /tmp/prop.default.updated &&
++		cat /tmp/prop.default.updated > "/$DEFAULTPROP"
++	rm -f /tmp/prop.default.updated
++}
++
+ osver_default_value()
+ {
+ 	osver_default=$(grep "$1=" /"$DEFAULTPROP")
+@@ -360,7 +367,7 @@
+ 					venpatchlevel_device=$(grep -i -m 1 'ro.vendor.build.security_patch=' "$TEMPVEN/$BUILDPROP"  | cut -f2 -d'=' -s)
+ 					if ! [ "$venpatchlevel" = "venpatchlevel_device" ]; then
+ 						$setprop_bin "ro.vendor.build.security_patch" "$venpatchlevel_device"
+-						sed -i "s/ro.vendor.build.security_patch=.*/ro.vendor.build.security_patch=""$venpatchlevel_device""/g" "/$DEFAULTPROP" ;
++						update_default_prop ro.vendor.build.security_patch "$venpatchlevel_device"
+ 						venpatchlevel_new=$(getprop ro.vendor.build.security_patch)
+ 						venpatchlevel_default=$(grep -i -m 1 'ro.vendor.build.security_patch=' /$DEFAULTPROP | cut -f2 -d'=' -s)
+ 						if [ "$venpatchlevel_device" = "$venpatchlevel_new" ]; then
+@@ -376,7 +383,7 @@
+ 					else
+ 						venpatchlevel_default=$(grep -i -m 1 'ro.vendor.build.security_patch=' /$DEFAULTPROP | cut -f2 -d'=' -s)
+ 						if ! [ "$venpatchlevel_device" = "$venpatchlevel_default" ]; then
+-							sed -i "s/ro.vendor.build.security_patch=.*/ro.vendor.build.security_patch=""$venpatchlevel_device""/g" "/$DEFAULTPROP" ;
++							update_default_prop ro.vendor.build.security_patch "$venpatchlevel_device"
+ 						fi
+ 					fi
+ 				else
+@@ -405,7 +412,7 @@
+ 				osver=$(grep -i -m 1 'ro.build.version.release=' "$TEMPSYS/$BUILDPROP"  | cut -f2 -d'=' -s)
+ 				if [ -n "$osver" ]; then
+ 					$setprop_bin "ro.build.version.release" "$osver"
+-					sed -i "s/ro.build.version.release=.*/ro.build.version.release=""$osver""/g" "/$DEFAULTPROP" ;
++					update_default_prop ro.build.version.release "$osver"
+ 					osver_new=$(getprop ro.build.version.release)
+ 					osver_default=$(grep -i -m 1 'ro.build.version.release=' /$DEFAULTPROP | cut -f2 -d'=' -s)
+ 					if [ "$osver" = "$osver_new" ]; then
+@@ -423,7 +430,7 @@
+ 				patchlevel=$(grep -i -m 1 'ro.build.version.security_patch=' "$TEMPSYS/$BUILDPROP"  | cut -f2 -d'=' -s)
+ 				if [ -n "$patchlevel" ]; then
+ 					$setprop_bin "ro.build.version.security_patch" "$patchlevel"
+-					sed -i "s/ro.build.version.security_patch=.*/ro.build.version.security_patch=""$patchlevel""/g" "/$DEFAULTPROP" ;
++					update_default_prop ro.build.version.security_patch "$patchlevel"
+ 					patchlevel_new=$(getprop ro.build.version.security_patch)
+ 					patchlevel_default=$(grep -i -m 1 'ro.build.version.security_patch=' /$DEFAULTPROP | cut -f2 -d'=' -s)
+ 					if [ "$patchlevel" = "$patchlevel_new" ]; then
+--- a/bootable/recovery/etc/init.rc
++++ b/bootable/recovery/etc/init.rc
+@@ -12,6 +12,7 @@
+     restorecon_recursive /system/bin /system/lib /system/lib64 /system/etc
+     restorecon_recursive /vendor/lib /vendor/lib64 /vendor/etc
+     restorecon /sepolicy /file_contexts /file_contexts.bin
++    restorecon /prop.default
+ 
+     # Set the security context of /postinstall if present.
+     restorecon /postinstall
