@@ -1,0 +1,7 @@
+prepdecrypt. u:object_r:lmi_recovery_prop:s0 prefix string
+crypto.ready u:object_r:lmi_recovery_prop:s0 exact bool
+keymaster_ver u:object_r:lmi_recovery_prop:s0 exact string
+twrp. u:object_r:lmi_recovery_prop:s0 prefix string
+hwservicemanager.ready u:object_r:lmi_hwservice_ready_prop:s0 exact bool
+vendor.sys.listeners.registered u:object_r:lmi_tee_listener_prop:s0 exact bool
+sys.listeners.registered u:object_r:lmi_tee_listener_prop:s0 exact bool

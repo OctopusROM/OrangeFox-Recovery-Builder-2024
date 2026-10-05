@@ -1,0 +1,2 @@
+genfscon sysfs /devices/platform/soc/ae00000.qcom,mdss_mdp/backlight/panel0-backlight u:object_r:sysfs_leds:s0
+genfscon sysfs /devices/platform/soc/a600000.ssusb u:object_r:sysfs_usb:s0
