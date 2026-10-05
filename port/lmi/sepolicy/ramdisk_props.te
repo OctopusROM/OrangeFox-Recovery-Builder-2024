@@ -1,5 +1,7 @@
+# Shared file_contexts.bin is validated against the normal policy too.
+type lmi_ramdisk_prop_file, file_type;
+
 recovery_only(`
-    type lmi_ramdisk_prop_file, file_type;
     allow recovery lmi_ramdisk_prop_file:file { getattr open read write append };
 
     neverallow domain lmi_ramdisk_prop_file:file no_x_file_perms;
