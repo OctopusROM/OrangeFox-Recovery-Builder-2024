@@ -104,7 +104,7 @@ jobs:
           lunch twrp_lmi-bp2a-eng
           mka -j2 sepolicy.recovery secilc sepolicy-analyze sepolicy-check checkfc \
             2>&1 | tee "$GITHUB_WORKSPACE/logs/selinux-build.log"
-          jq -e '.SelinuxIgnoreNeverallows == false' out/soong/soong.variables
+          jq -e '.SelinuxIgnoreNeverallows == false' "out/soong/soong.${TARGET_PRODUCT}.variables"
           policy=out/target/product/lmi/recovery/root/sepolicy
           test -s "$policy"
           test -z "$(out/host/linux-x86/bin/sepolicy-analyze "$policy" permissive)"
