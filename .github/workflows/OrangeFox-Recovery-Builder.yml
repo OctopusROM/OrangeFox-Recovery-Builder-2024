@@ -54,7 +54,7 @@ jobs:
             gcc-multilib git git-lfs gnupg gperf lib32ncurses-dev lib32z1-dev \
             binutils-aarch64-linux-gnu binutils-arm-linux-gnueabi \
             libelf-dev liblz4-tool libncurses5 libssl-dev libxml2-utils lzop \
-            patch python3 python-is-python3 rsync unzip wget xsltproc zip \
+            jq patch python3 python-is-python3 rsync unzip wget xsltproc zip \
             zlib1g-dev
           sudo curl --fail --location \
             https://storage.googleapis.com/git-repo-downloads/repo \
@@ -96,6 +96,31 @@ jobs:
         run: |
           bash scripts/build-lmi-kernel.sh "$ANDROID_SOURCE" \
             2>&1 | tee logs/kernel.log
+
+      - name: Compile enforcing recovery policy with neverallow checks
+        run: |
+          cd "$ANDROID_SOURCE"
+          source build/envsetup.sh
+          lunch twrp_lmi-bp2a-eng
+          mka -j2 sepolicy.recovery secilc sepolicy-analyze sepolicy-check checkfc \
+            2>&1 | tee "$GITHUB_WORKSPACE/logs/selinux-build.log"
+          jq -e '.SelinuxIgnoreNeverallows == false' out/soong/soong.variables
+          policy=out/target/product/lmi/recovery/root/sepolicy
+          test -s "$policy"
+          test -z "$(out/host/linux-x86/bin/sepolicy-analyze "$policy" permissive)"
+          shopt -s nullglob
+          configs=(out/soong/.intermediates/system/sepolicy/recovery_sepolicy.conf/*/lmi/recovery_sepolicy.conf)
+          test "${#configs[@]}" -eq 1
+          cils=(out/soong/.intermediates/system/sepolicy/recovery_sepolicy.cil/*/lmi/recovery_sepolicy.cil)
+          test "${#cils[@]}" -eq 1
+          # Full assertions require the CIL's unexpanded attributes, not the binary.
+          out/host/linux-x86/bin/secilc -m -M true -G -c 30 "${cils[0]}" \
+            -o "$GITHUB_WORKSPACE/logs/selinux-checked.policy" -f /dev/null \
+            2>&1 | tee "$GITHUB_WORKSPACE/logs/selinux-neverallow.log"
+          cmp "$policy" "$GITHUB_WORKSPACE/logs/selinux-checked.policy"
+          printf 'All CIL assertions verified without bypass; installed policy matches\n' \
+            | tee -a "$GITHUB_WORKSPACE/logs/selinux-neverallow.log"
+          cp "${configs[0]}" "$GITHUB_WORKSPACE/logs/recovery_sepolicy.conf"
 
       - name: Build recovery image and OrangeFox installer
         run: |
@@ -180,6 +205,8 @@ jobs:
           )
           bash scripts/check-crypto-linkage.sh artifacts/unpacked/root \
             | tee logs/crypto-linkage.log
+          bash scripts/check-lmi-selinux.sh artifacts/unpacked/root artifacts/image-info.txt \
+            "$ANDROID_SOURCE/out/host/linux-x86/bin" | tee logs/selinux-artifact.log
           cp "$ANDROID_SOURCE/device/xiaomi/lmi/PORT-SOURCES.txt" artifacts/
           cp "$ANDROID_SOURCE/device/xiaomi/lmi/CRYPTO-SHA256SUMS" artifacts/
           cp "$ANDROID_SOURCE/device/xiaomi/lmi/prebuilt/KERNEL-SHA256SUMS" artifacts/
