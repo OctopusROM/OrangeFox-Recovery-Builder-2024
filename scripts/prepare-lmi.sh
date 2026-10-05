@@ -72,3 +72,4 @@ No MIUI 12 recovery donor kernel or blob package is used.
 SOURCES
 
 bash "$builder_root/scripts/stage-lineage-crypto.sh" "$source_root"
+bash "$builder_root/scripts/prepare-lmi-selinux.sh" "$source_root"
