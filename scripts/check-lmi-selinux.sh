@@ -14,8 +14,8 @@ builder_root=$(realpath "$(dirname "$0")/..")
 policy="$ramdisk/sepolicy"
 test -s "$policy"
 test -s "$ramdisk/file_contexts"
-grep -aFq 'tar_extract_file(): invalid archived SELinux context' "$ramdisk/system/bin/recovery"
-grep -aFq 'tar_extract_file(): SELinux relabel denied for context' "$ramdisk/system/bin/recovery"
+grep -aFq 'tar_extract_file(): invalid archived SELinux context' "$ramdisk/system/lib64/libtar.so"
+grep -aFq 'tar_extract_file(): SELinux relabel denied for context' "$ramdisk/system/lib64/libtar.so"
 grep -Eq '(^|[[:space:]])androidboot.selinux=enforcing([[:space:]]|$)' "$image_info"
 if grep -Eq 'androidboot.selinux=permissive|(^|[[:space:]])enforcing=0([[:space:]]|$)' "$image_info"; then
     printf 'Recovery boot configuration disables enforcement\n' >&2
