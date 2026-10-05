@@ -1,0 +1,69 @@
+--- a/bootable/recovery/libtar/extract.c
++++ b/bootable/recovery/libtar/extract.c
+@@ -126,3 +126,52 @@
++	if ((t->options & TAR_STORE_SELINUX) && t->th_buf.selinux_context != NULL)
++	{
++		const char *selinux_class = "file";
++		char *current_context = NULL;
++		int access_result;
++		int access_errno;
++
++		if (TH_ISDIR(t))
++			selinux_class = "dir";
++		else if (TH_ISSYM(t))
++			selinux_class = "lnk_file";
++		else if (TH_ISCHR(t))
++			selinux_class = "chr_file";
++		else if (TH_ISBLK(t))
++			selinux_class = "blk_file";
++		else if (TH_ISFIFO(t))
++			selinux_class = "fifo_file";
++
++		if (security_check_context(t->th_buf.selinux_context) < 0)
++		{
++			int context_errno = errno;
++			fprintf(stderr, "tar_extract_file(): invalid archived SELinux context %s for %s\n",
++				t->th_buf.selinux_context, realname);
++			errno = context_errno;
++			return -1;
++		}
++
++		if (getcon(&current_context) < 0)
++		{
++			int context_errno = errno;
++			fprintf(stderr, "tar_extract_file(): unable to read current SELinux context for %s\n",
++				realname);
++			errno = context_errno;
++			return -1;
++		}
++
++		access_result = selinux_check_access(current_context, t->th_buf.selinux_context,
++						     selinux_class, "relabelto", NULL);
++		access_errno = errno;
++		freecon(current_context);
++		if (access_result < 0)
++		{
++			fprintf(stderr, "tar_extract_file(): SELinux relabel denied for context %s to %s\n",
++				t->th_buf.selinux_context, realname);
++			errno = access_errno;
++			return -1;
++		}
++	}
++
+ 	if (t->options & TAR_NOOVERWRITE)
+ 	{
+ 		struct stat s;
+@@ -170,7 +219,12 @@
+ 		LOG("tar_extract_file(): restoring SELinux context %s to file %s\n", t->th_buf.selinux_context, realname);
+ #endif
+-		if (lsetfilecon(realname, t->th_buf.selinux_context) < 0)
++		if (lsetfilecon(realname, t->th_buf.selinux_context) < 0)
++		{
++			int context_errno = errno;
+ 			fprintf(stderr, "tar_extract_file(): failed to restore SELinux context %s to file %s !!!\n", t->th_buf.selinux_context, realname);
++			errno = context_errno;
++			return -1;
++		}
+ 	}
+ 
+ 	if((t->options & TAR_STORE_POSIX_CAP) && t->th_buf.has_cap_data)
