@@ -1,0 +1,645 @@
+--- a/system/sepolicy/private/mlstrustedsubject.te
++++ b/system/sepolicy/private/mlstrustedsubject.te
+@@ -6,6 +6,7 @@
+ 
+ neverallow {
+   mlstrustedsubject
++  recovery_only(`-recovery')
+   -artd # compile secondary dex files
+   -installd
+ } {
+@@ -16,6 +17,7 @@
+ 
+ neverallow {
+   mlstrustedsubject
++  recovery_only(`-recovery')
+   -artd # compile secondary dex files
+   -installd
+ } {
+@@ -27,6 +29,7 @@
+ is_flag_enabled(RELEASE_UNLOCKED_STORAGE_API, `
+   neverallow {
+     mlstrustedsubject
++    recovery_only(`-recovery')
+     -artd # compile secondary dex files
+     -installd
+     -vold # encryption of storage areas
+@@ -36,6 +39,7 @@
+ 
+ neverallow {
+   mlstrustedsubject
++  recovery_only(`-recovery')
+   -artd # compile secondary dex files
+   -installd
+   -system_server
+@@ -51,6 +55,7 @@
+ is_flag_enabled(RELEASE_UNLOCKED_STORAGE_API, `
+   neverallow {
+     mlstrustedsubject
++    recovery_only(`-recovery')
+     -artd # compile secondary dex files
+     -installd
+     -system_server
+--- a/system/sepolicy/private/vold.te
++++ b/system/sepolicy/private/vold.te
+@@ -393,6 +393,7 @@
+ # set up on empty directories, so creation and encryption must happen together.
+ neverallow {
+     domain
++    recovery_only(`-recovery')
+     -vold
+ } {
+     media_userdir_file
+@@ -407,6 +408,7 @@
+ # Only vold and init should ever set file-based encryption policies.
+ neverallowxperm {
+   domain
++  recovery_only(`-recovery')
+   -vold
+   -init
+   -vendor_init
+@@ -416,17 +418,20 @@
+ # Only vold should ever add/remove file-based encryption keys.
+ neverallowxperm {
+   domain
++  recovery_only(`-recovery')
+   -vold
+ } data_file_type:dir ioctl { FS_IOC_ADD_ENCRYPTION_KEY FS_IOC_REMOVE_ENCRYPTION_KEY FS_IOC_GET_ENCRYPTION_KEY_STATUS };
+ 
+ neverallow {
+     domain
++    recovery_only(`-recovery')
+     -vold
+     -vold_prepare_subdirs
+ } vold_data_file:dir ~{ open create read getattr setattr search relabelfrom relabelto ioctl };
+ 
+ neverallow {
+     domain
++    recovery_only(`-recovery')
+     -init
+     -vold
+     -vold_prepare_subdirs
+@@ -434,12 +439,14 @@
+ 
+ neverallow {
+     domain
++    recovery_only(`-recovery')
+     -init
+     -vold
+ } vold_metadata_file:dir *;
+ 
+ neverallow {
+     domain
++    recovery_only(`-recovery')
+     -kernel
+     -vold
+     -vold_prepare_subdirs
+@@ -447,6 +454,7 @@
+ 
+ neverallow {
+     domain
++    recovery_only(`-recovery')
+     -init
+     -vold
+     -vold_prepare_subdirs
+@@ -454,6 +462,7 @@
+ 
+ neverallow {
+     domain
++    recovery_only(`-recovery')
+     -init
+     -kernel
+     -vold
+--- a/system/sepolicy/private/domain.te
++++ b/system/sepolicy/private/domain.te
+@@ -720,10 +720,10 @@
+ # The test files and executables MUST not be accessible to any domain
+-neverallow { domain userdebug_or_eng(`-kernel') } nativetest_data_file:file_class_set no_w_file_perms;
+-neverallow domain nativetest_data_file:dir no_w_dir_perms;
++neverallow { domain recovery_only(`-recovery') userdebug_or_eng(`-kernel') } nativetest_data_file:file_class_set no_w_file_perms;
++neverallow { domain recovery_only(`-recovery') } nativetest_data_file:dir no_w_dir_perms;
+ neverallow { domain userdebug_or_eng(`-shell') } nativetest_data_file:file no_x_file_perms;
+ 
+-neverallow { domain -shell -init -adbd } shell_test_data_file:file_class_set no_w_file_perms;
+-neverallow { domain -shell -init -adbd } shell_test_data_file:dir no_w_dir_perms;
+-neverallow { domain -shell -init -adbd -heapprofd -crash_dump } shell_test_data_file:file *;
++neverallow { domain recovery_only(`-recovery') -shell -init -adbd } shell_test_data_file:file_class_set no_w_file_perms;
++neverallow { domain recovery_only(`-recovery') -shell -init -adbd } shell_test_data_file:dir no_w_dir_perms;
++neverallow { domain recovery_only(`-recovery') -shell -init -adbd -heapprofd -crash_dump } shell_test_data_file:file *;
+ neverallow heapprofd shell_test_data_file:file { no_w_file_perms no_x_file_perms };
+ neverallow { domain -shell -init -adbd } shell_test_data_file:sock_file *;
+@@ -731,6 +731,6 @@
+ # Only the init property service should write to /data/property and /dev/__properties__
+-neverallow { domain -init } property_data_file:dir no_w_dir_perms;
+-neverallow { domain -init } property_data_file:file { no_w_file_perms no_x_file_perms };
++neverallow { domain recovery_only(`-recovery') -init } property_data_file:dir no_w_dir_perms;
++neverallow { domain recovery_only(`-recovery') -init } property_data_file:file { no_w_file_perms no_x_file_perms };
+ neverallow { domain -init recovery_only(`-recovery') } property_type:file { no_w_file_perms no_x_file_perms };
+ neverallow { domain -init } properties_device:file { no_w_file_perms no_x_file_perms };
+ neverallow { domain -init recovery_only(`-recovery') } properties_serial:file { no_w_file_perms no_x_file_perms };
+@@ -1042,4 +1042,4 @@
+   neverallow {
+-    coredomain
++    coredomain recovery_only(`-recovery')
+     -appdomain # TODO(b/34980020) remove exemption for appdomain
+     -data_between_core_and_vendor_violators
+@@ -1055,4 +1055,4 @@
+   neverallow {
+-    coredomain
++    coredomain recovery_only(`-recovery')
+     -appdomain # TODO(b/34980020) remove exemption for appdomain
+     -data_between_core_and_vendor_violators
+@@ -1141,4 +1141,4 @@
+   neverallow {
+-    coredomain
++    coredomain recovery_only(`-recovery')
+     -data_between_core_and_vendor_violators # TODO(b/34980020) Remove once all violators have been cleaned up
+     -init
+@@ -1154,4 +1154,4 @@
+   neverallow {
+-    coredomain
++    coredomain recovery_only(`-recovery')
+     -data_between_core_and_vendor_violators # TODO(b/34980020) Remove once all violators have been cleaned up
+     -init
+@@ -1381,4 +1381,4 @@
+ neverallow {
+-  domain
++  domain recovery_only(`-recovery')
+   -system_server
+   -system_app
+@@ -1424,4 +1424,4 @@
+ neverallow {
+-  domain
++  domain recovery_only(`-recovery')
+   -appdomain
+   -artd
+@@ -1431,4 +1431,4 @@
+ neverallow {
+-  domain
++  domain recovery_only(`-recovery')
+   -shell
+   userdebug_or_eng(`-uncrypt')
+@@ -1653,4 +1653,4 @@
+ neverallow {
+-  domain
++  domain recovery_only(`-recovery')
+   -init
+   -system_server
+@@ -1659,4 +1659,4 @@
+ neverallow {
+-  domain
++  domain recovery_only(`-recovery')
+   -init
+   -system_server
+@@ -1668,5 +1668,5 @@
+ neverallow {
+-  domain
++  domain recovery_only(`-recovery')
+   -appdomain
+   -artd # compile secondary dex files
+   -installd # creation of sandbox
+@@ -1679,5 +1679,5 @@
+ is_flag_enabled(RELEASE_UNLOCKED_STORAGE_API, `
+   neverallow {
+-    domain
++    domain recovery_only(`-recovery')
+     -artd # compile secondary dex files
+     -installd # creation of sandbox
+@@ -1690,4 +1690,4 @@
+ neverallow {
+-  domain
++  domain recovery_only(`-recovery')
+   -adbd
+   -appdomain
+@@ -1708,5 +1708,5 @@
+ is_flag_enabled(RELEASE_UNLOCKED_STORAGE_API, `
+   neverallow {
+-    domain
++    domain recovery_only(`-recovery')
+     -appdomain
+     -app_zygote
+@@ -1727,1 +1727,1 @@
+-    domain
++    domain recovery_only(`-recovery')
+@@ -1737,4 +1737,4 @@
+ neverallow {
+-  domain
++  domain recovery_only(`-recovery')
+   -appdomain
+   -artd # compile secondary dex files
+@@ -1749,5 +1749,5 @@
+ is_flag_enabled(RELEASE_UNLOCKED_STORAGE_API, `
+   neverallow {
+-    domain
++    domain recovery_only(`-recovery')
+     -appdomain
+     -artd # compile secondary dex files
+@@ -1760,4 +1760,4 @@
+ neverallow {
+-  domain
++  domain recovery_only(`-recovery')
+   -appdomain
+   -app_zygote
+@@ -1773,4 +1773,4 @@
+ neverallow {
+-  domain
++  domain recovery_only(`-recovery')
+   -appdomain
+   -artd # compile secondary dex files
+@@ -1784,4 +1784,4 @@
+ neverallow {
+-  domain
++  domain recovery_only(`-recovery')
+   -artd # compile secondary dex files
+   -installd
+@@ -1794,5 +1794,5 @@
+ is_flag_enabled(RELEASE_UNLOCKED_STORAGE_API, `
+   neverallow {
+-    domain
++    domain recovery_only(`-recovery')
+     -artd # compile secondary dex files
+     -installd
+@@ -2236,4 +2236,4 @@
+ neverallow {
+-  domain
++  domain recovery_only(`-recovery')
+   -adbd
+   -appdomain
+@@ -2256,4 +2256,4 @@
+ neverallow {
+-  domain
++  domain recovery_only(`-recovery')
+   -adbd
+   -artd
+@@ -2267,4 +2267,4 @@
+ neverallow {
+-  domain
++  domain recovery_only(`-recovery')
+   -adbd
+   -appdomain
+@@ -2280,4 +2280,4 @@
+ neverallow {
+-  domain
++  domain recovery_only(`-recovery')
+   -adbd
+   -appdomain
+@@ -2296,4 +2296,4 @@
+ neverallow {
+-  domain
++  domain recovery_only(`-recovery')
+   -appdomain
+   -artd # compile secondary dex files
+@@ -2318,1 +2318,1 @@
+-neverallow { domain -gmscore_app -init -vold_prepare_subdirs } checkin_data_file:{dir file} *;
++neverallow { domain recovery_only(`-recovery') -gmscore_app -init -vold_prepare_subdirs } checkin_data_file:{dir file} *;
+--- a/system/sepolicy/private/init.te
++++ b/system/sepolicy/private/init.te
+@@ -856,1 +856,1 @@
+-neverallow { domain -init -toolbox -vendor_init -vold } system_data_root_file:dir { write add_name remove_name };
++neverallow { domain recovery_only(`-recovery') -init -toolbox -vendor_init -vold } system_data_root_file:dir { write add_name remove_name };
+--- a/system/sepolicy/private/keystore.te
++++ b/system/sepolicy/private/keystore.te
+@@ -98,1 +98,1 @@
+-neverallow { domain -keystore } keystore_data_file:notdevfile_class_set ~{ relabelto getattr };
++neverallow { domain recovery_only(`-recovery') -keystore } keystore_data_file:notdevfile_class_set ~{ relabelto getattr };
+@@ -100,2 +100,2 @@
+-neverallow { domain -keystore -init } keystore_data_file:dir *;
+-neverallow { domain -keystore -init } keystore_data_file:notdevfile_class_set *;
++neverallow { domain recovery_only(`-recovery') -keystore -init } keystore_data_file:dir *;
++neverallow { domain recovery_only(`-recovery') -keystore -init } keystore_data_file:notdevfile_class_set *;
+--- a/system/sepolicy/private/virtualizationservice.te
++++ b/system/sepolicy/private/virtualizationservice.te
+@@ -122,6 +122,7 @@
+ neverallow {
+   domain
++  recovery_only(`-recovery')
+   -init
+   -virtualizationmanager
+   -virtualizationservice
+ } virtualizationservice_data_file:file { open create };
+--- a/system/sepolicy/private/system_server.te
++++ b/system/sepolicy/private/system_server.te
+@@ -1656,1 +1656,1 @@
+-neverallow { domain -init -system_server } font_data_file:file no_w_file_perms;
++neverallow { domain recovery_only(`-recovery') -init -system_server } font_data_file:file no_w_file_perms;
+@@ -1657,1 +1657,1 @@
+-neverallow { domain -init -system_server } font_data_file:dir no_w_dir_perms;
++neverallow { domain recovery_only(`-recovery') -init -system_server } font_data_file:dir no_w_dir_perms;
+--- a/system/sepolicy/private/statsd.te
++++ b/system/sepolicy/private/statsd.te
+@@ -144,1 +144,1 @@
+-neverallow { domain -statsd -init -vold } stats_data_file:file *;
++neverallow { domain recovery_only(`-recovery') -statsd -init -vold } stats_data_file:file *;
+@@ -145,1 +145,1 @@
+-neverallow { domain -statsd -system_server -init -vold } stats_config_data_file:file *;
++neverallow { domain recovery_only(`-recovery') -statsd -system_server -init -vold } stats_config_data_file:file *;
+@@ -149,1 +149,1 @@
+-neverallow { domain -statsd -init -vold } stats_data_file:dir *;
++neverallow { domain recovery_only(`-recovery') -statsd -init -vold } stats_data_file:dir *;
+@@ -150,1 +150,1 @@
+-neverallow { domain -statsd -system_server -init -vold } stats_config_data_file:dir *;
++neverallow { domain recovery_only(`-recovery') -statsd -system_server -init -vold } stats_config_data_file:dir *;
+--- a/system/sepolicy/private/sdk_sandbox_all.te
++++ b/system/sepolicy/private/sdk_sandbox_all.te
+@@ -83,7 +83,8 @@
+ neverallow {
+     domain
++    recovery_only(`-recovery')
+     -init
+     -installd
+     -system_server
+     -vold_prepare_subdirs
+ } sdk_sandbox_system_data_file:dir { relabelfrom };
+@@ -91,9 +92,10 @@
+ neverallow {
+     domain
++    recovery_only(`-recovery')
+     -init
+     -installd
+     -sdk_sandbox_all
+     -system_server
+     -vold_prepare_subdirs
+     -zygote
+ } sdk_sandbox_system_data_file:dir { create_dir_perms relabelto };
+@@ -103,7 +105,8 @@
+ neverallow {
+     domain
++    recovery_only(`-recovery')
+     -init
+     -installd
+     -system_server
+     -vold_prepare_subdirs
+ } sdk_sandbox_system_data_file:dir { relabelfrom };
+@@ -111,9 +114,10 @@
+ neverallow {
+     domain
++    recovery_only(`-recovery')
+     -init
+     -installd
+     -sdk_sandbox_all
+     -system_server
+     -vold_prepare_subdirs
+     -zygote
+ } sdk_sandbox_system_data_file:dir { create_dir_perms relabelto };
+@@ -125,1 +129,1 @@
+-neverallow { domain -init } sdk_sandbox_system_data_file:file *;
++neverallow { domain recovery_only(`-recovery') -init } sdk_sandbox_system_data_file:file *;
+--- a/system/sepolicy/private/perfetto.te
++++ b/system/sepolicy/private/perfetto.te
+@@ -87,13 +87,14 @@
+ neverallow {
+   domain
++  recovery_only(`-recovery')
+   -init      # The creator of the folder.
+   -perfetto  # The owner of the folder.
+   -adbd      # For pulling traces.
+   -shell     # For devepment purposes.
+   -traced    # For write_into_file traces.
+   -dumpstate # For attaching traces to bugreports.
+   -incidentd # For receiving reported traces. TODO(lalitm): remove this.
+   -priv_app  # For stating traces for bug-report UI.
+   -system_server # For accessing traces started by profiling apis.
+   -trace_redactor # For accessing traces to be redacted.
+ } perfetto_traces_data_file:dir *;
+@@ -100,10 +101,11 @@
+ neverallow {
+   domain
++  recovery_only(`-recovery')
+   -init      # The creator of the folder.
+   -perfetto  # The owner of the folder.
+   -adbd      # For pulling traces.
+   -shell     # For devepment purposes.
+   -traced    # For write_into_file traces.
+   -incidentd      # For receiving reported traces. TODO(lalitm): remove this.
+   -trace_redactor # For redacting trace files.
+ } perfetto_traces_data_file:file ~{ getattr read };
+--- a/system/sepolicy/private/odsign.te
++++ b/system/sepolicy/private/odsign.te
+@@ -65,1 +65,1 @@
+-neverallow { domain -odsign -init} odsign_data_file:dir ~search;
++neverallow { domain recovery_only(`-recovery') -odsign -init} odsign_data_file:dir ~search;
+@@ -66,1 +66,1 @@
+-neverallow { domain -odsign -init} odsign_data_file:file *;
++neverallow { domain recovery_only(`-recovery') -odsign -init} odsign_data_file:file *;
+--- a/system/sepolicy/private/odrefresh.te
++++ b/system/sepolicy/private/odrefresh.te
+@@ -71,1 +71,1 @@
+-neverallow { domain -init -odrefresh -system_server -artd } odrefresh_data_file:dir *;
++neverallow { domain recovery_only(`-recovery') -init -odrefresh -system_server -artd } odrefresh_data_file:dir *;
+@@ -72,1 +72,1 @@
+-neverallow { domain -init -odrefresh -system_server } odrefresh_data_file:file *;
++neverallow { domain recovery_only(`-recovery') -init -odrefresh -system_server } odrefresh_data_file:file *;
+--- a/system/sepolicy/private/odrefresh.te
++++ b/system/sepolicy/private/odrefresh.te
+@@ -65,1 +65,1 @@
+-neverallow { domain -init -odrefresh -compos_fd_server } apex_art_staging_data_file:file open;
++neverallow { domain recovery_only(`-recovery') -init -odrefresh -compos_fd_server } apex_art_staging_data_file:file open;
+--- a/system/sepolicy/private/domain.te
++++ b/system/sepolicy/private/domain.te
+@@ -1930,12 +1930,13 @@
+ neverallow {
+   domain
++  recovery_only(`-recovery')
+   # art-related processes
+   -composd
+   -compos_fd_server
+   -odrefresh
+   -odsign
+   # others
+   -apexd
+   -init
+   -vold_prepare_subdirs
+ } apex_art_data_file:dir no_w_dir_perms;
+--- a/system/sepolicy/private/domain.te
++++ b/system/sepolicy/private/domain.te
+@@ -1917,12 +1917,13 @@
+ neverallow {
+   domain
++  recovery_only(`-recovery')
+   # art-related processes
+   -composd
+   -compos_fd_server
+   -odrefresh
+   -odsign
+   # others
+   -apexd
+   -init
+   -vold_prepare_subdirs
+ } apex_art_data_file:file no_w_file_perms;
+--- a/system/sepolicy/private/domain.te
++++ b/system/sepolicy/private/domain.te
+@@ -1903,11 +1903,12 @@
+ neverallow {
+   domain
++  recovery_only(`-recovery')
+   -init
+   -installd
+   -postinstall_dexopt
+   -cppreopts
+   -dex2oat
+   -zygote
+   -otapreopt_slot
+   -artd
+ } dalvikcache_data_file:dir no_w_dir_perms;
+--- a/system/sepolicy/private/domain.te
++++ b/system/sepolicy/private/domain.te
+@@ -1891,11 +1891,12 @@
+ neverallow {
+   domain
++  recovery_only(`-recovery')
+   -init # TODO: limit init to relabelfrom for files
+   -zygote
+   -installd
+   -postinstall_dexopt
+   -cppreopts
+   -dex2oat
+   -otapreopt_slot
+   -artd
+ } dalvikcache_data_file:file no_w_file_perms;
+--- a/system/sepolicy/private/domain.te
++++ b/system/sepolicy/private/domain.te
+@@ -1837,1 +1837,1 @@
+-neverallow { domain -init -system_server -installd -apexd -update_provider } staging_data_file:file {
++neverallow { domain recovery_only(`-recovery') -init -system_server -installd -apexd -update_provider } staging_data_file:file {
+--- a/system/sepolicy/private/domain.te
++++ b/system/sepolicy/private/domain.te
+@@ -1834,1 +1834,1 @@
+-neverallow { domain -init -system_server -installd -update_provider } staging_data_file:dir no_w_dir_perms;
++neverallow { domain recovery_only(`-recovery') -init -system_server -installd -update_provider } staging_data_file:dir no_w_dir_perms;
+--- a/system/sepolicy/private/domain.te
++++ b/system/sepolicy/private/domain.te
+@@ -1818,15 +1818,16 @@
+ neverallow {
+   domain
++  recovery_only(`-recovery')
+   -init
+   -system_app
+   -system_server
+   -apexd
+   -adbd
+   -kernel
+   -installd
+   -priv_app
+   -shell
+   -virtualizationmanager
+   -crosvm
+   -update_provider # WARNING: USING THIS ATTRIBUTE WILL CAUSE CTS TO FAIL!
+ } staging_data_file:file *;
+--- a/system/sepolicy/private/domain.te
++++ b/system/sepolicy/private/domain.te
+@@ -1808,10 +1808,11 @@
+ neverallow {
+   domain
++  recovery_only(`-recovery')
+   -init
+   -system_server
+   -apexd
+   -installd
+   -priv_app
+   -virtualizationmanager
+   -update_provider # WARNING: USING THIS ATTRIBUTE WILL CAUSE CTS TO FAIL!
+ } staging_data_file:dir *;
+--- a/system/sepolicy/private/domain.te
++++ b/system/sepolicy/private/domain.te
+@@ -1304,1 +1304,1 @@
+-neverallow { domain -init -system_server } heapdump_data_file:file read;
++neverallow { domain recovery_only(`-recovery') -init -system_server } heapdump_data_file:file read;
+--- a/system/sepolicy/private/logpersist.te
++++ b/system/sepolicy/private/logpersist.te
+@@ -62,1 +62,1 @@
+-neverallow { domain -init -dumpstate -incidentd userdebug_or_eng(`-logpersist -logd') } misc_logd_file:file no_rw_file_perms;
++neverallow { domain recovery_only(`-recovery') -init -dumpstate -incidentd userdebug_or_eng(`-logpersist -logd') } misc_logd_file:file no_rw_file_perms;
+@@ -63,1 +63,1 @@
+-neverallow { domain -init userdebug_or_eng(`-logpersist -logd') } misc_logd_file:file no_w_file_perms;
++neverallow { domain recovery_only(`-recovery') -init userdebug_or_eng(`-logpersist -logd') } misc_logd_file:file no_w_file_perms;
+@@ -64,1 +64,1 @@
+-neverallow { domain -init userdebug_or_eng(`-logpersist -logd') } misc_logd_file:dir { add_name link relabelfrom remove_name rename reparent rmdir write };
++neverallow { domain recovery_only(`-recovery') -init userdebug_or_eng(`-logpersist -logd') } misc_logd_file:dir { add_name link relabelfrom remove_name rename reparent rmdir write };
+--- a/system/sepolicy/private/incidentd.te
++++ b/system/sepolicy/private/incidentd.te
+@@ -207,1 +207,1 @@
+-neverallow { domain -incidentd -init -vold } incident_data_file:file {
++neverallow { domain recovery_only(`-recovery') -incidentd -init -vold } incident_data_file:file {
+@@ -217,1 +217,1 @@
+-neverallow { domain -incidentd -init -vold -system_server } incident_data_file:file r_file_perms;
++neverallow { domain recovery_only(`-recovery') -incidentd -init -vold -system_server } incident_data_file:file r_file_perms;
+@@ -219,1 +219,1 @@
+-neverallow { domain -incidentd -init -vold } incident_data_file:dir create_dir_perms;
++neverallow { domain recovery_only(`-recovery') -incidentd -init -vold } incident_data_file:dir create_dir_perms;
+--- a/system/sepolicy/private/gsid.te
++++ b/system/sepolicy/private/gsid.te
+@@ -198,5 +198,6 @@
+ neverallow {
+     domain
++    recovery_only(`-recovery')
+     -init
+     -gsid
+ } gsi_data_file:dir_file_class_set *;
+@@ -204,4 +205,5 @@
+ neverallow {
+     domain
++    recovery_only(`-recovery')
+     -gsid
+ } gsi_data_file:file_class_set ~{ relabelto getattr };
+--- a/system/sepolicy/private/flags_health_check.te
++++ b/system/sepolicy/private/flags_health_check.te
+@@ -50,1 +50,1 @@
+-neverallow { domain -init -flags_health_check } server_configurable_flags_data_file:file no_w_file_perms;
++neverallow { domain recovery_only(`-recovery') -init -flags_health_check } server_configurable_flags_data_file:file no_w_file_perms;
+--- a/system/sepolicy/private/dumpstate.te
++++ b/system/sepolicy/private/dumpstate.te
+@@ -596,8 +596,9 @@
+ neverallow {
+   domain
++  recovery_only(`-recovery')
+   -dumpstate
+   -system_server
+   -apexd
+   -init
+   -vold_prepare_subdirs
+ } apex_uwb_data_file:dir no_rw_file_perms;
+@@ -604,8 +605,9 @@
+ neverallow {
+   domain
++  recovery_only(`-recovery')
+   -dumpstate
+   -system_server
+   -apexd
+   -init
+   -vold_prepare_subdirs
+ } apex_uwb_data_file:file no_rw_file_perms;
+--- a/system/sepolicy/private/apexd.te
++++ b/system/sepolicy/private/apexd.te
+@@ -202,1 +202,1 @@
+-neverallow { domain -apexd -init } apex_data_file:dir no_w_dir_perms;
++neverallow { domain recovery_only(`-recovery') -apexd -init } apex_data_file:dir no_w_dir_perms;
+@@ -204,1 +204,1 @@
+-neverallow { domain -apexd -init -kernel } apex_data_file:file no_w_file_perms;
++neverallow { domain recovery_only(`-recovery') -apexd -init -kernel } apex_data_file:file no_w_file_perms;
+@@ -208,1 +208,1 @@
+-neverallow { domain -apexd -init -vold_prepare_subdirs } apex_module_data_file:dir no_w_dir_perms;
++neverallow { domain recovery_only(`-recovery') -apexd -init -vold_prepare_subdirs } apex_module_data_file:dir no_w_dir_perms;
+@@ -209,1 +209,1 @@
+-neverallow { domain -apexd -init -vold_prepare_subdirs } apex_module_data_file:file no_w_file_perms;
++neverallow { domain recovery_only(`-recovery') -apexd -init -vold_prepare_subdirs } apex_module_data_file:file no_w_file_perms;
+@@ -211,1 +211,1 @@
+-neverallow { domain -apexd -init -vold_prepare_subdirs } apex_rollback_data_file:dir no_w_dir_perms;
++neverallow { domain recovery_only(`-recovery') -apexd -init -vold_prepare_subdirs } apex_rollback_data_file:dir no_w_dir_perms;
+@@ -212,1 +212,1 @@
+-neverallow { domain -apexd -init -vold_prepare_subdirs } apex_rollback_data_file:file no_w_file_perms;
++neverallow { domain recovery_only(`-recovery') -apexd -init -vold_prepare_subdirs } apex_rollback_data_file:file no_w_file_perms;
+--- a/system/sepolicy/private/vendor_init.te
++++ b/system/sepolicy/private/vendor_init.te
+@@ -100,1 +100,2 @@
+-  file_type
++  file_type
++  recovery_only(`-lmi_ramdisk_prop_file')
+@@ -121,1 +122,2 @@
+-}:file { create getattr open read write setattr relabelfrom unlink map };
++}:file { create getattr open read write setattr relabelfrom unlink map };
++recovery_only(`allow vendor_init lmi_ramdisk_prop_file:file { getattr open read map };')
+--- a/system/sepolicy/private/app.te
++++ b/system/sepolicy/private/app.te
+@@ -631,1 +631,1 @@
+-neverallow { domain -credstore -init } credstore_data_file:dir_file_class_set *;
++neverallow { domain recovery_only(`-recovery') -credstore -init } credstore_data_file:dir_file_class_set *;
