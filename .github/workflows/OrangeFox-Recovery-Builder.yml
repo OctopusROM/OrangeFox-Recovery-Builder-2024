@@ -102,7 +102,8 @@ jobs:
           cd "$ANDROID_SOURCE"
           source build/envsetup.sh
           lunch twrp_lmi-bp2a-eng
-          mka -j2 sepolicy.recovery secilc sepolicy-analyze sepolicy-check checkfc \
+          # Shared labels must also validate against the normal precompiled policy.
+          mka -j2 sepolicy.recovery file_contexts.bin secilc sepolicy-analyze sepolicy-check checkfc \
             2>&1 | tee "$GITHUB_WORKSPACE/logs/selinux-build.log"
           jq -e '.SelinuxIgnoreNeverallows == false' "out/soong/soong.${TARGET_PRODUCT}.variables"
           policy=out/target/product/lmi/recovery/root/sepolicy
