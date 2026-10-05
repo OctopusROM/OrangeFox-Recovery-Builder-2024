@@ -1,0 +1,171 @@
+type lmi_recovery_exec, exec_type, system_file_type, file_type;
+type lmi_keystore_tmp_file, file_type, core_data_file_type;
+
+system_internal_prop(lmi_recovery_prop)
+system_internal_prop(lmi_hwservice_ready_prop)
+vendor_internal_prop(lmi_tee_listener_prop)
+
+recovery_only(`
+    typeattribute recovery mlstrustedsubject;
+    selinux_check_context(recovery)
+    selinux_check_access(recovery)
+    domain_auto_trans(init, lmi_recovery_exec, recovery)
+    hal_client_domain(recovery, hal_keymaster)
+    hal_client_domain(recovery, hal_gatekeeper)
+    use_keystore(recovery)
+    allow recovery authorization_service:service_manager find;
+    allow recovery keystore:keystore2 add_auth;
+    allow recovery vold_key:keystore2_key {
+        manage_blob use convert_storage_key_to_ephemeral rebind get_info
+    };
+    allow recovery locksettings_key:keystore2_key { get_info use };
+    allow adbd recovery:process dyntransition;
+    # adbd changes its root context before serving the inherited init socket.
+    allow recovery adbd:fd use;
+    allow recovery adbd:unix_stream_socket { rw_socket_perms_no_ioctl listen accept };
+    allow recovery adbd:unix_dgram_socket { connect write };
+    allow recovery shell_exec:file { rx_file_perms execute_no_trans };
+    allowxperm recovery functionfs:file ioctl FUNCTIONFS_CLEAR_HALT;
+
+    # libvold uses the session keyring installed by the FBE init action.
+    allow recovery init:key { write search setattr };
+    allow recovery self:key { write search setattr };
+    allow init recovery:key search;
+
+    get_prop(recovery, lmi_recovery_prop)
+    get_prop(recovery, lmi_hwservice_ready_prop)
+    get_prop(recovery, lmi_tee_listener_prop)
+    get_prop(recovery, build_prop)
+    get_prop(recovery, fingerprint_prop)
+    get_prop(recovery, vendor_security_patch_level_prop)
+    get_prop(recovery, vold_config_prop)
+    get_prop(recovery, vold_status_prop)
+    get_prop(recovery, config_prop)
+    get_prop(recovery, dynamic_system_prop)
+    get_prop(recovery, storage_config_prop)
+    get_prop(recovery, property_service_version_prop)
+
+    set_prop(recovery, lmi_recovery_prop)
+    set_prop(hwservicemanager, lmi_hwservice_ready_prop)
+    set_prop(tee, lmi_tee_listener_prop)
+    allow recovery properties_serial:file write;
+    allow recovery { build_prop fingerprint_prop vendor_security_patch_level_prop lmi_recovery_prop }:file write;
+    allow recovery self:global_capability_class_set { fsetid sys_nice };
+    allow recovery kernel:system module_request;
+
+    allow recovery { data_file_type -keystore_data_file }:dir {
+        add_name create getattr open read remove_name rename rmdir search setattr
+        write relabelfrom relabelto
+    };
+    allow recovery { data_file_type -keystore_data_file }:file {
+        append create getattr open read rename setattr unlink write relabelfrom relabelto
+    };
+    allow recovery { data_file_type -keystore_data_file }:lnk_file {
+        create getattr read rename setattr unlink write relabelfrom relabelto
+    };
+    allow recovery { data_file_type -keystore_data_file }:{ dir file } ioctl;
+    allowxperm recovery { data_file_type -keystore_data_file }:dir ioctl {
+        FS_IOC_ADD_ENCRYPTION_KEY
+        FS_IOC_GET_ENCRYPTION_KEY_STATUS
+        FS_IOC_GET_ENCRYPTION_POLICY
+        FS_IOC_GET_ENCRYPTION_POLICY_EX
+        FS_IOC_GETFLAGS
+        FS_IOC_REMOVE_ENCRYPTION_KEY
+        FS_IOC_SET_ENCRYPTION_POLICY
+        FS_IOC_SETFLAGS
+    };
+    allowxperm recovery { data_file_type -keystore_data_file }:file ioctl {
+        FS_IOC_FIEMAP
+        FS_IOC_GETFLAGS
+        FS_IOC_SETFLAGS
+    };
+
+    # Existing FBE keys and metadata are read during metadata decryption;
+    # TWRP excludes these paths from backup and does not manage their files.
+    allow recovery vold_metadata_file:dir { getattr open read search };
+    allow recovery vold_metadata_file:file { getattr open read };
+
+    allow recovery keystore_data_file:dir { getattr search };
+    allow recovery keystore_data_file:file { getattr open read };
+
+    allow recovery lmi_keystore_tmp_file:dir { add_name search write };
+    allow recovery lmi_keystore_tmp_file:file { create getattr open setattr write };
+
+    allow init lmi_keystore_tmp_file:dir {
+        add_name create getattr open read remove_name reparent rename rmdir search setattr write
+        relabelfrom relabelto
+    };
+    allow init lmi_keystore_tmp_file:file { getattr relabelfrom relabelto };
+    allow lmi_keystore_tmp_file tmpfs:filesystem associate;
+    allow keystore lmi_keystore_tmp_file:dir {
+        add_name getattr open read remove_name search write
+    };
+    allow keystore lmi_keystore_tmp_file:file {
+        append create getattr lock map open read rename setattr unlink write
+    };
+
+    allowxperm recovery dm_device:chr_file ioctl {
+        DM_DEV_CREATE
+        DM_DEV_REMOVE
+        DM_DEV_RENAME
+        DM_DEV_STATUS
+        DM_DEV_SUSPEND
+        DM_DEV_WAIT
+        DM_LIST_DEVICES
+        DM_REMOVE_ALL
+        DM_TABLE_CLEAR
+        DM_TABLE_DEPS
+        DM_TABLE_LOAD
+        DM_TABLE_STATUS
+        DM_VERSION
+    };
+
+    allow { hal_keymaster_default hal_gatekeeper_default } tee_device:chr_file rw_file_perms;
+    allow tee tee_device:chr_file setattr;
+    allow { hal_keymaster_default hal_gatekeeper_default } ion_device:chr_file r_file_perms;
+    allowxperm { tee hal_keymaster_default hal_gatekeeper_default } ion_device:chr_file ioctl {
+        ION_IOC_ALLOC
+        ION_IOC_CUSTOM
+        ION_IOC_FREE
+        ION_IOC_IMPORT
+        ION_IOC_MAP
+        ION_IOC_SHARE
+        ION_IOC_SYNC
+    };
+
+    allow { tee hal_keymaster_default hal_gatekeeper_default } vendor_file:dir {
+        getattr open read search
+    };
+    allow { tee hal_keymaster_default hal_gatekeeper_default } vendor_file:file {
+        getattr open read map
+    };
+    allow { tee hal_keymaster_default hal_gatekeeper_default } vendor_file:lnk_file {
+        getattr read
+    };
+    allow { tee hal_keymaster_default hal_gatekeeper_default } vfat:dir {
+        getattr open read search
+    };
+    allow { tee hal_keymaster_default hal_gatekeeper_default } vfat:file {
+        getattr open read
+    };
+    allow { tee hal_keymaster_default hal_gatekeeper_default } vfat:lnk_file {
+        getattr read
+    };
+
+    allow recovery mtp_device:chr_file { getattr ioctl open read write };
+    read_logd(recovery)
+    write_logd(recovery)
+    allow ueventd self:global_capability_class_set sys_nice;
+')
+
+neverallow { domain -keystore -init recovery_only(`-recovery') } lmi_keystore_tmp_file:dir {
+    add_name create getattr ioctl lock open read remove_name rename reparent rmdir search setattr write
+};
+neverallow { domain -keystore -init recovery_only(`-recovery') } lmi_keystore_tmp_file:file {
+    append create entrypoint execute execute_no_trans getattr ioctl link lock map open read
+    relabelfrom relabelto rename setattr unlink write
+};
+neverallow { domain -keystore -init recovery_only(`-recovery') } lmi_keystore_tmp_file:lnk_file {
+    append create execute getattr ioctl link lock map open read
+    relabelfrom relabelto rename setattr unlink write
+};

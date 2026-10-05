@@ -1,0 +1,7 @@
+recovery_only(`
+    type lmi_ramdisk_prop_file, file_type;
+    allow recovery lmi_ramdisk_prop_file:file { getattr open read write append };
+
+    neverallow domain lmi_ramdisk_prop_file:file no_x_file_perms;
+    neverallow { domain -init -recovery } lmi_ramdisk_prop_file:file no_w_file_perms;
+')
