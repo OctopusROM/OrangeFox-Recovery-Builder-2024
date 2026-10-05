@@ -30,7 +30,7 @@ BOARD_KERNEL_BASE := 0x00000000
 BOARD_KERNEL_PAGESIZE := 4096
 BOARD_KERNEL_CMDLINE := androidboot.hardware=qcom androidboot.console=ttyMSM0 androidboot.memcg=1 lpm_levels.sleep_disabled=1 msm_rtb.filter=0x237 service_locator.enable=1 androidboot.usbcontroller=a600000.dwc3 swiotlb=2048 loop.max_part=7 cgroup.memory=nokmem,nosocket reboot=panic_warm
 BOARD_KERNEL_CMDLINE += androidboot.fstab_suffix=qcom
-BOARD_KERNEL_CMDLINE += androidboot.init_fatal_reboot_target=recovery androidboot.selinux=permissive
+BOARD_KERNEL_CMDLINE += androidboot.init_fatal_reboot_target=recovery androidboot.selinux=enforcing
 BOARD_KERNEL_IMAGE_NAME := Image
 TARGET_PREBUILT_KERNEL := $(DEVICE_PATH)/prebuilt/kernel
 BOARD_INCLUDE_DTB_IN_BOOTIMG := true
@@ -76,6 +76,8 @@ BOARD_AVB_RECOVERY_ROLLBACK_INDEX_LOCATION := 1
 TARGET_RECOVERY_FSTAB := $(DEVICE_PATH)/recovery/root/system/etc/recovery.fstab
 TARGET_RECOVERY_PIXEL_FORMAT := RGBX_8888
 TARGET_SYSTEM_PROP += $(DEVICE_PATH)/system.prop
+SYSTEM_EXT_PRIVATE_SEPOLICY_DIRS += $(DEVICE_PATH)/sepolicy
+SELINUX_IGNORE_NEVERALLOWS := false
 TW_INCLUDE_CRYPTO := true
 TW_INCLUDE_CRYPTO_FBE := true
 TW_INCLUDE_FBE_METADATA_DECRYPT := true
