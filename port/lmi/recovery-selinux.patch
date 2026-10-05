@@ -1,0 +1,274 @@
+--- a/system/sepolicy/private/twrp.te
++++ b/system/sepolicy/private/twrp.te
+@@ -1,11 +1,4 @@
+ recovery_only(`
+-  permissive recovery;
+-  permissive init;
+-  permissive logd;
+-  permissive adbd;
+-  permissive fastbootd;
+-  permissive postinstall;
+-  permissive ueventd;
+   allow kernel unlabeled:file rw_file_perms;
+   allow kernel tmpfs:file { read };
+   allow kernel recovery:fd { use };
+--- a/system/sepolicy/private/su.te
++++ b/system/sepolicy/private/su.te
+@@ -24,7 +24,7 @@
+   virtualizationservice_use(su)
+ 
+   # su is also permissive to permit setenforce.
+-  permissive su;
++  not_recovery(`permissive su;')
+ 
+   app_domain(su)
+ 
+--- a/system/sepolicy/private/adbd.te
++++ b/system/sepolicy/private/adbd.te
+@@ -225,7 +225,7 @@
+ neverallow adbd {
+     domain
+     userdebug_or_eng(`-su')
+-    recovery_only(`-shell')
++    recovery_only(`-shell -recovery')
+     -adbd_tradeinmode
+ }:process dyntransition;
+ 
+--- a/system/sepolicy/private/domain.te
++++ b/system/sepolicy/private/domain.te
+@@ -730,9 +730,20 @@
+ # Only the init property service should write to /data/property and /dev/__properties__
+ neverallow { domain -init } property_data_file:dir no_w_dir_perms;
+ neverallow { domain -init } property_data_file:file { no_w_file_perms no_x_file_perms };
+-neverallow { domain -init } property_type:file { no_w_file_perms no_x_file_perms };
++neverallow { domain -init recovery_only(`-recovery') } property_type:file { no_w_file_perms no_x_file_perms };
+ neverallow { domain -init } properties_device:file { no_w_file_perms no_x_file_perms };
+-neverallow { domain -init } properties_serial:file { no_w_file_perms no_x_file_perms };
++neverallow { domain -init recovery_only(`-recovery') } properties_serial:file { no_w_file_perms no_x_file_perms };
++# resetprop prepares the installed ROM tuple in this recovery's RAM only.
++recovery_only(`
++  neverallow recovery {
++    property_type
++    -build_prop
++    -fingerprint_prop
++    -vendor_security_patch_level_prop
++    -lmi_recovery_prop
++  }:file no_w_file_perms;
++  neverallow recovery { property_type properties_serial }:file no_x_file_perms;
++')
+ 
+ # Nobody should be doing writes to /system & /vendor
+ # These partitions are intended to be read-only and must never be
+@@ -750,7 +761,7 @@
+     exec_type
+ }:dir_file_class_set { create write setattr relabelfrom append unlink link rename };
+ 
+-neverallow { domain -kernel with_asan(`-asan_extract') userdebug_or_eng(`-overlay_remounter') } { system_file_type vendor_file_type exec_type }:dir_file_class_set relabelto;
++neverallow { domain -kernel recovery_only(`-init') with_asan(`-asan_extract') userdebug_or_eng(`-overlay_remounter') } { system_file_type vendor_file_type exec_type }:dir_file_class_set relabelto;
+ 
+ # Don't allow mounting on top of /system files or directories
+ neverallow {
+--- a/system/sepolicy/private/recovery.te
++++ b/system/sepolicy/private/recovery.te
+@@ -198,6 +198,9 @@
+ # domains, including recovery.
+ #
+ # TODO: tighten this up further.
++# Interactive recovery manages decrypted data; normal-ROM policy is unchanged.
++# The recovery build still prohibits execution directly from installed data.
++not_recovery(`
+ neverallow recovery {
+    data_file_type
+    -cache_file
+@@ -210,3 +213,7 @@
+    -cache_recovery_file
+   with_native_coverage(`-method_trace_data_file')
+ }:dir no_w_dir_perms;
++')
++recovery_only(`
++  neverallow recovery data_file_type:file no_x_file_perms;
++')
+--- a/bootable/recovery/etc/init.rc
++++ b/bootable/recovery/etc/init.rc
+@@ -6,6 +6,13 @@
+ import /init.recovery.${ro.hardware}.rc
+ 
+ on early-init
++    # Label the RAMDISK before ueventd, logd and Binder services start.
++    # Installed ROM mounts (/s, /v, /data, /metadata) are not relabeled.
++    restorecon /system /vendor
++    restorecon_recursive /system/bin /system/lib /system/lib64 /system/etc
++    restorecon_recursive /vendor/lib /vendor/lib64 /vendor/etc
++    restorecon /sepolicy /file_contexts /file_contexts.bin
++
+     # Set the security context of /postinstall if present.
+     restorecon /postinstall
+ 
+@@ -15,12 +22,7 @@
+     # Copy prebuilt ld.config.txt into linkerconfig directory
+     copy /system/etc/ld.config.txt /linkerconfig/ld.config.txt
+     chmod 444 /linkerconfig/ld.config.txt
+-    mkdir /system/bin/bootstrap
+-    symlink /system/bin/linker64 /system/bin/bootstrap/linker64
+-    symlink /system/bin/linker /system/bin/bootstrap/linker
+-    symlink /system/bin/linker /system/bin/bootstrap/linker_asan
+-    symlink /system/bin/linker64 /system/bin/bootstrap/linker_asan64
+-    symlink /system/bin/linker64 /system/bin/bootstrap/linker_hwasan64
++    # bootstrap links are built into the RAMDISK, not created in /system.
+ 
+     start ueventd
+ 
+@@ -132,7 +134,7 @@
+     seclabel u:r:recovery:s0
+     user root
+ 
+-service adbd /system/bin/adbd --root_seclabel=u:r:su:s0 --device_banner=recovery
++service adbd /system/bin/adbd --root_seclabel=u:r:recovery:s0 --device_banner=recovery
+     disabled
+     socket adbd stream 660 system system
+     seclabel u:r:adbd:s0
+--- a/bootable/recovery/etc/init/hwservicemanager.rc
++++ b/bootable/recovery/etc/init/hwservicemanager.rc
+@@ -6,4 +6,3 @@
+     group root
+     onrestart setprop hwservicemanager.ready false
+     disabled
+-    seclabel u:r:recovery:s0
+--- a/bootable/recovery/etc/init/servicemanager.rc
++++ b/bootable/recovery/etc/init/servicemanager.rc
+@@ -5,4 +5,3 @@
+     user root
+     group root readproc
+     disabled
+-    seclabel u:r:recovery:s0
+--- a/bootable/recovery/etc/init/vndservicemanager.rc
++++ b/bootable/recovery/etc/init/vndservicemanager.rc
+@@ -7,4 +7,3 @@
+     group root readproc
+     writepid /dev/cpuset/system-background/tasks
+     shutdown critical
+-    seclabel u:r:recovery:s0
+--- a/bootable/recovery/etc/init/keystore2.rc
++++ b/bootable/recovery/etc/init/keystore2.rc
+@@ -14,4 +14,3 @@
+     user root
+     group keystore readproc log
+     writepid /dev/cpuset/foreground/tasks
+-    seclabel u:r:recovery:s0
+--- a/bootable/recovery/etc/init/android.hardware.health@2.1-service.rc
++++ b/bootable/recovery/etc/init/android.hardware.health@2.1-service.rc
+@@ -4,4 +4,3 @@
+     group root
+     capabilities WAKE_ALARM
+     file /dev/kmsg w
+-    seclabel u:r:recovery:s0
+--- a/bootable/recovery/etc/init/android.hardware.health@2.0-service.rc
++++ b/bootable/recovery/etc/init/android.hardware.health@2.0-service.rc
+@@ -4,4 +4,3 @@
+     group root
+     capabilities WAKE_ALARM
+     file /dev/kmsg w
+-    seclabel u:r:recovery:s0
+--- a/device/qcom/twrp-common/crypto/init.recovery.qcom_decrypt.rc
++++ b/device/qcom/twrp-common/crypto/init.recovery.qcom_decrypt.rc
+@@ -94,7 +94,6 @@
+     setenv LD_LIBRARY_PATH /vendor/lib64:/vendor/lib:/system/lib64:/system/lib:/sbin
+     disabled
+     oneshot
+-    seclabel u:r:recovery:s0
+ 
+ service keymaster-3-0 /system/bin/android.hardware.keymaster@3.0-service
+     user root
+@@ -126,7 +125,6 @@
+     setenv LD_LIBRARY_PATH /vendor/lib64:/vendor/lib:/system/lib64:/system/lib:/sbin
+     disabled
+     oneshot
+-    seclabel u:r:recovery:s0
+ 
+ service keymaster-4-1 /system/bin/android.hardware.keymaster@4.1-service
+     user root
+--- a/device/qcom/twrp-common/crypto_fbe/init.recovery.qcom_decrypt.fbe.rc
++++ b/device/qcom/twrp-common/crypto_fbe/init.recovery.qcom_decrypt.fbe.rc
+@@ -42,7 +42,6 @@
+     group root
+     setenv LD_LIBRARY_PATH /vendor/lib64:/vendor/lib:/system/lib64:/system/lib:/sbin
+     disabled
+-    seclabel u:r:recovery:s0
+ 
+ service keystore_auth /system/bin/keystore_auth
+     oneshot
+--- a/system/sepolicy/tools/sepolicy-check.c
++++ b/system/sepolicy/tools/sepolicy-check.c
+@@ -58,1 +58,1 @@
+-	uint16_t perm_bitmask = 1U << (perm->s.value - 1);
++	uint32_t perm_bitmask = 1U << (perm->s.value - 1);
+--- a/system/sepolicy/tools/checkfc.c
++++ b/system/sepolicy/tools/checkfc.c
+@@ -213,10 +213,11 @@
+         "Compares two file contexts files and reports one of \n"
+         "subset, equal, superset, or incomparable.\n\n"
+ 
+-        "usage3:  %s -t file_contexts test_data\n\n"
++        "usage3:  %s [-t|-T] file_contexts test_data\n\n"
+         "Validates a file contexts file against test_data.\n"
+         "test_data is a text file where each line has the format:\n"
+-        "  path expected_type\n\n\n",
++        "  path expected_type\n"
++        "-t also requires every context rule to be covered; -T checks only test paths.\n\n\n",
+         name, name, name);
+     exit(1);
+ }
+@@ -285,7 +286,7 @@
+ }
+ 
+ static void do_test_data_and_die_on_error(struct selinux_opt opts[], unsigned int backend,
+-        char *paths[])
++        char *paths[], bool require_coverage)
+ {
+     opts[0].value = NULL; /* not validating against a policy */
+     opts[1].value = paths[0];
+@@ -346,6 +347,10 @@
+         exit(1);
+     }
+ 
++    if (!require_coverage) {
++        return;
++    }
++
+     // Prints the coverage of file_contexts on the test data. It includes
+     // warnings for rules that have not been hit by any test example.
+     union selinux_callback cb;
+@@ -441,11 +446,12 @@
+   bool allow_empty = false;
+   bool compare = false;
+   bool test_data = false;
++  bool require_coverage = true;
+   char c;
+ 
+   filemode mode = filemode_file_contexts;
+ 
+-  while ((c = getopt(argc, argv, "clpsvet")) != -1) {
++  while ((c = getopt(argc, argv, "clpsvetT")) != -1) {
+     switch (c) {
+       case 'c':
+         compare = true;
+@@ -472,6 +478,10 @@
+       case 't':
+         test_data = true;
+         break;
++      case 'T':
++        test_data = true;
++        require_coverage = false;
++        break;
+       case 'h':
+       default:
+         usage(argv[0]);
+@@ -493,7 +503,7 @@
+   if (compare) {
+       do_compare_and_die_on_error(opts, backend, &(argv[index]));
+   } else if (test_data) {
+-      do_test_data_and_die_on_error(opts, backend, &(argv[index]));
++      do_test_data_and_die_on_error(opts, backend, &(argv[index]), require_coverage);
+   } else {
+       /* remaining args are sepolicy file and context file  */
+       char *sepolicy_file = argv[index];
