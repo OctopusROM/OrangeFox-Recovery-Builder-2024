@@ -17,13 +17,14 @@ test -f "$source_root/device/xiaomi/lmi/BoardConfig.mk"
 for input in \
     system/sepolicy:9641d92817ae79b2d4cd02dfe5c24de7de2014b4 \
     bootable/recovery:0f7831d3240f4c3925a0b5fd7d2c907ddf8704c2 \
+    external/selinux:89fe589e4b91ea164f01788724d7e3dd73949a44 \
     device/qcom/twrp-common:98506f7919102378c8d52ee7d6a94a867f1b4c55; do
     project=${input%%:*}
     revision=${input#*:}
     test "$(GIT_MASTER=1 git -C "$source_root/$project" rev-parse HEAD)" = "$revision"
 done
 
-for policy_patch in recovery-selinux.patch recovery-data-policy.patch recovery-ramdisk-props.patch recovery-restore-labels.patch; do
+for policy_patch in recovery-selinux.patch recovery-data-policy.patch recovery-ramdisk-props.patch recovery-restore-labels.patch recovery-selinux-export.patch; do
     patch --dry-run --batch --fuzz=0 -d "$source_root" -p1 \
         < "$builder_root/port/lmi/$policy_patch"
     patch --batch --fuzz=0 -d "$source_root" -p1 \
@@ -51,4 +52,6 @@ done
         "$(sha256sum "$builder_root/port/lmi/recovery-ramdisk-props.patch" | cut -d ' ' -f1)"
     printf 'Recovery restore-label patch SHA256: %s\n' \
         "$(sha256sum "$builder_root/port/lmi/recovery-restore-labels.patch" | cut -d ' ' -f1)"
+    printf 'Recovery SELinux export patch SHA256: %s\n' \
+        "$(sha256sum "$builder_root/port/lmi/recovery-selinux-export.patch" | cut -d ' ' -f1)"
 } >> "$source_root/device/xiaomi/lmi/PORT-SOURCES.txt"
