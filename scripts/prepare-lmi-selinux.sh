@@ -43,7 +43,7 @@ for linker in linker linker64 linker_asan linker_asan64 linker_hwasan64; do
 done
 
 {
-    printf 'SELinux: enforcing candidate, Recovery-only data exceptions, neverallow checks enabled\n'
+    printf 'SELinux: permissive boot, Recovery-only data exceptions, neverallow checks enabled\n'
     printf 'Recovery SELinux patch SHA256: %s\n' \
         "$(sha256sum "$builder_root/port/lmi/recovery-selinux.patch" | cut -d ' ' -f1)"
     printf 'Recovery data-policy patch SHA256: %s\n' \

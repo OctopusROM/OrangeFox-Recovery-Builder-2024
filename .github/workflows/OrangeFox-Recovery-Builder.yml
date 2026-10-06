@@ -97,7 +97,7 @@ jobs:
           bash scripts/build-lmi-kernel.sh "$ANDROID_SOURCE" \
             2>&1 | tee logs/kernel.log
 
-      - name: Compile enforcing recovery policy with neverallow checks
+      - name: Compile recovery policy with neverallow checks
         run: |
           cd "$ANDROID_SOURCE"
           source build/envsetup.sh
@@ -261,3 +261,4 @@ jobs:
             Build logs: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
             Target: OrangeFox fox_16.0.
             Decryption target: LineageOS 23.2 (Android 16).
+            SELinux boot mode: permissive.
