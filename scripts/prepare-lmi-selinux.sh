@@ -16,6 +16,7 @@ test -f "$source_root/device/xiaomi/lmi/BoardConfig.mk"
 # The patch is reviewed against these exact manifest inputs, not moving branches.
 for input in \
     system/sepolicy:9641d92817ae79b2d4cd02dfe5c24de7de2014b4 \
+    system/vold:953de9608eb78380b3c4e39e801c2bc0af7dbddc \
     bootable/recovery:0f7831d3240f4c3925a0b5fd7d2c907ddf8704c2 \
     device/qcom/twrp-common:98506f7919102378c8d52ee7d6a94a867f1b4c55; do
     project=${input%%:*}
@@ -23,7 +24,7 @@ for input in \
     test "$(GIT_MASTER=1 git -C "$source_root/$project" rev-parse HEAD)" = "$revision"
 done
 
-for policy_patch in recovery-selinux.patch recovery-data-policy.patch recovery-ramdisk-props.patch recovery-restore-labels.patch; do
+for policy_patch in recovery-selinux.patch recovery-data-policy.patch recovery-ramdisk-props.patch recovery-restore-labels.patch recovery-user-decryption.patch; do
     patch --dry-run --batch --fuzz=0 -d "$source_root" -p1 \
         < "$builder_root/port/lmi/$policy_patch"
     patch --batch --fuzz=0 -d "$source_root" -p1 \
@@ -51,4 +52,6 @@ done
         "$(sha256sum "$builder_root/port/lmi/recovery-ramdisk-props.patch" | cut -d ' ' -f1)"
     printf 'Recovery restore-label patch SHA256: %s\n' \
         "$(sha256sum "$builder_root/port/lmi/recovery-restore-labels.patch" | cut -d ' ' -f1)"
+    printf 'Recovery secondary-user decryption patch SHA256: %s\n' \
+        "$(sha256sum "$builder_root/port/lmi/recovery-user-decryption.patch" | cut -d ' ' -f1)"
 } >> "$source_root/device/xiaomi/lmi/PORT-SOURCES.txt"

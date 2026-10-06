@@ -1,0 +1,194 @@
+diff --git a/system/vold/Decrypt.cpp b/system/vold/Decrypt.cpp
+index a02bad8..21c9399 100755
+--- a/system/vold/Decrypt.cpp
++++ b/system/vold/Decrypt.cpp
+@@ -36,0 +37 @@
++#include <openssl/crypto.h>
+@@ -86,0 +88 @@ extern "C" {
++#include "Utils.h"
+@@ -505,0 +508,57 @@ namespace keystore {
++	static bool Add_Auth_Token(const std::vector<uint8_t>& payload) {
++		if (payload.size() != sizeof(hw_auth_token_t)) {
++			printf("Invalid GateKeeper auth token size\n");
++			return false;
++		}
++		hw_auth_token_t token;
++		memcpy(&token, payload.data(), sizeof(token));
++		HardwareAuthToken authToken;
++		authToken.timestamp.milliSeconds = betoh64(token.timestamp);
++		authToken.challenge = token.challenge;
++		authToken.userId = token.user_id;
++		authToken.authenticatorId = token.authenticator_id;
++		authToken.authenticatorType = static_cast<HardwareAuthenticatorType>(
++				betoh32(token.authenticator_type));
++		authToken.mac.assign(token.hmac, token.hmac + sizeof(token.hmac));
++		::ndk::SpAIBinder binder(AServiceManager_waitForService("android.security.authorization"));
++		auto service = aidl::android::security::authorization::IKeystoreAuthorization::fromBinder(binder);
++		if (!service) {
++			printf("Could not connect to keystore authorization service\n");
++			return false;
++		}
++		auto status = service->addAuthToken(authToken);
++		if (!status.isOk()) {
++			printf("Failed to add GateKeeper auth token\n");
++			return false;
++		}
++		return true;
++	}
++
++	static bool Authorize_Profile_Parent(const userid_t user_id, const std::string& handle,
++			const std::string& password) {
++		// lmi uses the QTI HIDL Gatekeeper, also used for its LSKF protector.
++		auto gatekeeper = android::hardware::gatekeeper::V1_0::IGatekeeper::getService();
++		if (!gatekeeper) {
++			printf("Could not connect to parent GateKeeper\n");
++			return false;
++		}
++		android::hardware::hidl_vec<uint8_t> handle_vec;
++		handle_vec.setToExternal((uint8_t*)handle.data(), handle.size());
++		android::hardware::hidl_vec<uint8_t> password_vec;
++		password_vec.setToExternal((uint8_t*)password.data(), password.size());
++		GKResponse response;
++		auto status = gatekeeper->verify(user_id, 0, handle_vec, password_vec,
++			[&response, user_id](const GatekeeperResponse& rsp) {
++				if (rsp.code >= android::hardware::gatekeeper::V1_0::GatekeeperStatusCode::STATUS_OK) {
++					response = GKResponse::ok({rsp.data.begin(), rsp.data.end()});
++				} else if (rsp.code == android::hardware::gatekeeper::V1_0::GatekeeperStatusCode::ERROR_RETRY_TIMEOUT) {
++					printf("Parent GateKeeper retry for user %u after %u ms\n", user_id, rsp.timeout);
++					response = GKResponse::retry(rsp.timeout);
++				} else {
++					response = GKResponse::error();
++				}
++			});
++		return status.isOk() && response.response_code() == GKResponseCode::OK &&
++			Add_Auth_Token(response.payload());
++	}
++
+@@ -588 +647 @@ namespace keystore {
+-				keyResponse.metadata.key, begin_params.vector_data(), true,
++				keyResponse.metadata.key, begin_params.vector_data(), false,
+@@ -649,0 +709,22 @@ namespace keystore {
++			// A profile key is bound to the parent's real SID, not fakeUid(0).
++			std::string parent_handle;
++			struct stat parent_st;
++			const std::string parent_path = spblob_path + "0000000000000000.handle";
++			if (user_id == 0 && stat(parent_path.c_str(), &parent_st) == 0) {
++				std::string gk_hex;
++				if (*synthetic_password_version == SYNTHETIC_PASSWORD_VERSION_V3) {
++					gk_hex = PersonalizedHashSP800("sp-gk-authentication", PERSONALISATION_CONTEXT,
++						(const char*)secret_key, secret_key_real_size);
++				} else {
++					gk_hex = PersonalizedHash("sp-gk-authentication",
++						(const char*)secret_key, secret_key_real_size);
++				}
++				std::string gk_password;
++				if (!android::base::ReadFileToString(parent_path, &parent_handle) ||
++						android::vold::HexToStr(gk_hex, gk_password) != 0 ||
++						!Authorize_Profile_Parent(user_id, parent_handle, gk_password)) {
++					printf("Could not authorize parent-bound profile keys for user %u\n", user_id);
++				}
++				OPENSSL_cleanse(gk_password.data(), gk_password.size());
++				OPENSSL_cleanse(gk_hex.data(), gk_hex.size());
++			}
+@@ -742 +823 @@ bool Decrypt_User_Synth_Pass(const userid_t user_id, const std::string& Password
+-	unsigned char password_token[PASSWORD_TOKEN_SIZE];
++	unsigned char password_token[PASSWORD_TOKEN_SIZE] = {};
+@@ -922,21 +1003,4 @@ bool Decrypt_User_Synth_Pass(const userid_t user_id, const std::string& Password
+-			if (gkResponse.response_code() == GKResponseCode::OK) {
+-				if (gkResponse.payload().size() != 0) {
+-					const hw_auth_token_t* hwAuthToken =
+-						reinterpret_cast<const hw_auth_token_t*>(gkResponse.payload().data());
+-					HardwareAuthToken authToken;
+-					authToken.timestamp.milliSeconds = betoh64(hwAuthToken->timestamp);
+-					authToken.challenge = hwAuthToken->challenge;
+-					authToken.userId = hwAuthToken->user_id;
+-					authToken.authenticatorId = hwAuthToken->authenticator_id;
+-					authToken.authenticatorType = static_cast<HardwareAuthenticatorType>(
+-							betoh32(hwAuthToken->authenticator_type));
+-					authToken.mac.assign(&hwAuthToken->hmac[0], &hwAuthToken->hmac[32]);
+-					AIBinder* authzAIBinder = AServiceManager_waitForService("android.security.authorization");
+-					::ndk::SpAIBinder binder(authzAIBinder);
+-					auto service = aidl::android::security::authorization::IKeystoreAuthorization::fromBinder(binder);
+-					if (service == NULL) {
+-						printf("error: could not connect to keystore service\n");
+-						ALOGE("error: could not connect to keystore service\n");
+-					}
+-					auto binder_result = service->addAuthToken(authToken);
+-				}
++			if (gkResponse.response_code() != GKResponseCode::OK ||
++					!android::keystore::Add_Auth_Token(gkResponse.payload())) {
++				printf("GateKeeper authorization failed for user %u\n", user_id);
++				return Free_Return(retval, weaver_key, &pwd);
+@@ -964,0 +1029,48 @@ bool Decrypt_User_Synth_Pass(const userid_t user_id, const std::string& Password
++extern "C" bool Decrypt_Profile(const userid_t user_id) {
++	if (user_id == 0 || user_id > 9999)
++		return false;
++	std::string stored;
++	const std::string path = "/data/system/users/" + std::to_string(user_id) + "/gatekeeper.profile.key";
++	if (!android::base::ReadFileToString(path, &stored) || stored.size() <= 12 + 16) {
++		printf("Invalid tied profile lock file for user %u\n", user_id);
++		return false;
++	}
++	::ndk::SpAIBinder binder(AServiceManager_checkService("android.system.keystore2.IKeystoreService/default"));
++	auto keystore = ks2::IKeystoreService::fromBinder(binder);
++	if (!keystore)
++		return false;
++	ks2::KeyEntryResponse key;
++	auto status = keystore->getKeyEntry(android::keystore::keyDescriptor(
++		"profile_key_name_decrypt_" + std::to_string(user_id)), &key);
++	if (!status.isOk()) {
++		printf("Could not find parent-bound key for profile %u\n", user_id);
++		return false;
++	}
++	std::vector<uint8_t> nonce(stored.begin(), stored.begin() + 12);
++	std::vector<uint8_t> ciphertext(stored.begin() + 12, stored.end());
++	auto params = keymint::AuthorizationSetBuilder()
++		.Authorization(keymint::TAG_ALGORITHM, keymint::Algorithm::AES)
++		.Authorization(keymint::TAG_BLOCK_MODE, keymint::BlockMode::GCM)
++		.Padding(keymint::PaddingMode::NONE)
++		.Authorization(keymint::TAG_PURPOSE, keymint::KeyPurpose::DECRYPT)
++		.Authorization(keymint::TAG_NONCE, nonce)
++		.Authorization(keymint::TAG_MAC_LENGTH, 128);
++	ks2::CreateOperationResponse operation;
++	status = key.iSecurityLevel->createOperation(key.metadata.key, params.vector_data(), false, &operation);
++	if (!status.isOk()) {
++		printf("Parent authorization unavailable for profile %u\n", user_id);
++		return false;
++	}
++	std::optional<std::vector<uint8_t>> plaintext;
++	status = operation.iOperation->finish(ciphertext, {}, &plaintext);
++	if (!status.isOk() || !plaintext || plaintext->empty()) {
++		printf("Could not decrypt tied profile credential for user %u\n", user_id);
++		return false;
++	}
++	std::string password(plaintext->begin(), plaintext->end());
++	OPENSSL_cleanse(plaintext->data(), plaintext->size());
++	const bool result = Decrypt_User_Synth_Pass(user_id, password);
++	OPENSSL_cleanse(password.data(), password.size());
++	return result;
++}
++
+diff --git a/system/vold/Decrypt.h b/system/vold/Decrypt.h
+index ff926dc..b894897 100755
+--- a/system/vold/Decrypt.h
++++ b/system/vold/Decrypt.h
+@@ -40,0 +41 @@ namespace keystore {
++    bool Decrypt_Profile(const userid_t user_id);
+diff --git a/bootable/recovery/partitionmanager.cpp b/bootable/recovery/partitionmanager.cpp
+index 2fe6694..57ba24f 100755
+--- a/bootable/recovery/partitionmanager.cpp
++++ b/bootable/recovery/partitionmanager.cpp
+@@ -2386 +2386,2 @@ int TWPartitionManager::Decrypt_Device(string Password, int user_id) {
+-				// When decrypting user 0 also try all other users
++				// Tied profiles use an internal credential authorized by the parent.
++				// Other protected users must be selected with their own credential.
+@@ -2392,0 +2394,4 @@ int TWPartitionManager::Decrypt_Device(string Password, int user_id) {
++					const bool tied_profile = TWFunc::Path_Exists("/data/system/users/" +
++						(*iter).userId + "/gatekeeper.profile.key");
++					if (!tied_profile && (*iter).type != 0)
++						continue;
+@@ -2394,2 +2399,2 @@ int TWPartitionManager::Decrypt_Device(string Password, int user_id) {
+-					if (android::keystore::Decrypt_User(tmp_user_id, Password) ||
+-					(Password != "!" && android::keystore::Decrypt_User(tmp_user_id, "!"))) { // "!" means default password
++					if (tied_profile ? android::keystore::Decrypt_Profile(tmp_user_id) :
++						android::keystore::Decrypt_User(tmp_user_id, "!")) {
